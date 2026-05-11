@@ -5,10 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 const navigation = [
-  { href: "/", label: "Dashboard" },
-  { href: "/lancamentos", label: "Lancamentos" },
-  { href: "/categorias", label: "Categorias" },
-  { href: "/contas", label: "Contas" },
+  { href: "/", label: "Planilha" },
 ];
 
 type AppShellProps = {
@@ -39,17 +36,8 @@ export default function AppShell({
                 <span className="block text-sm font-semibold leading-5">
                   Controle Financeiro
                 </span>
-                <span className="block text-xs text-[#cbd5e1]">
-                  Painel pessoal
-                </span>
+                <span className="block text-xs text-[#cbd5e1]">Casa</span>
               </span>
-            </Link>
-
-            <Link
-              href="/login"
-              className="rounded-md border border-white/20 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10"
-            >
-              Login
             </Link>
           </div>
 

@@ -1,27 +1,16 @@
 # Controle Financeiro
 
-App domestico para substituir planilhas simples de controle financeiro.
+App domestico para substituir uma planilha simples de controle financeiro.
 
 ## Recursos
 
-- Dashboard com receitas, despesas e saldo do mes.
-- Filtro por periodo.
-- Lancamentos de receita e despesa.
-- Categorias com limite mensal para despesas.
-- Contas para organizar origem ou destino dos lancamentos.
-- Login por email via Supabase.
-
-## Configuracao
-
-Crie o arquivo `.env` com:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-```
-
-No Supabase, execute o SQL de [supabase/schema.sql](./supabase/schema.sql)
-para criar as tabelas `categorias` e `lancamentos` com RLS.
+- Planilha unica para receitas e despesas.
+- Edicao inline de data, tipo, descricao, categoria, conta, valor e status.
+- Resumo automatico de receitas, despesas, saldo e valores pendentes.
+- Filtros por periodo, tipo e busca textual.
+- Resumo de despesas por categoria.
+- Dados salvos no navegador, sem usuario e senha.
+- Exportacao CSV compativel com Excel.
 
 ## Desenvolvimento
 
