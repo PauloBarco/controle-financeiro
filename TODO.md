@@ -1,8 +1,5 @@
-# TODO - Melhorias Controle Financeiro
-
-- [ ] Corrigir carregamento/persistência em `app/resumo-mes/page.tsx` (load com `useEffect` + inicialização correta).
-- [ ] Unificar helpers de domínio (ex: `lerValor`, `normalizarLancamento`) em um único arquivo em `lib/` e atualizar ambas as páginas.
-- [ ] Endurecer tratamento de `valor` (parse consistente e compatível com input numérico/string).
-- [ ] (Opcional) Refatorar UI/UX (trocar `confirm` por modal ou manter se aceitável).
-- [ ] Rodar `npm run lint`, `npx tsc --noEmit` e `npm run build`.
+- [ ] Atualizar `app/resumo-mes/page.tsx` para adicionar campo (seletor/botões) de direcionamento
+- [ ] Integrar o estado para filtrar/mostrar apenas: Todos / Receitas / Contas a pagar / Pagas
+- [ ] Garantir que a marcação de “pago” e anexos de comprovante continuem funcionando
+- [ ] Rodar `npm run dev` e validar UI
 

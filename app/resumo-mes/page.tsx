@@ -285,6 +285,7 @@ export default function ResumoMesPage() {
       const dados = JSON.parse(salvo);
 
       if (Array.isArray(dados)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLancamentos(
           dados.map(normalizarLancamento),
         );
@@ -393,6 +394,19 @@ export default function ResumoMesPage() {
     persistir(next);
   }
 
+  const [filtroDetalhe, setFiltroDetalhe] = useState<
+    "todos" | "receitas" | "despesas_pendentes" | "despesas_pagas"
+  >("todos");
+
+  const mostrarReceitas =
+    filtroDetalhe === "todos" || filtroDetalhe === "receitas";
+  const mostrarPendentes =
+    filtroDetalhe === "todos" ||
+    filtroDetalhe === "despesas_pendentes";
+  const mostrarPagas =
+    filtroDetalhe === "todos" ||
+    filtroDetalhe === "despesas_pagas";
+
   return (
     <AppShell
       title="Resumo do mês"
@@ -427,145 +441,186 @@ export default function ResumoMesPage() {
           />
         </section>
 
+        <section className="rounded-lg border border-[#d8dee8] bg-white p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-base font-semibold">
+                Direcionar para detalhes
+              </h2>
+              <p className="mt-1 text-sm text-[#64748b]">
+                Mostra receitas e despesas detalhadas do mês.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="filtroDetalhe"
+                className="text-sm font-semibold text-[#334155]"
+              >
+                Exibir:
+              </label>
+
+              <select
+                id="filtroDetalhe"
+                value={filtroDetalhe}
+                onChange={(e) =>
+                  setFiltroDetalhe(
+                    e.target.value as typeof filtroDetalhe,
+                  )
+                }
+                className="h-9 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm font-semibold text-[#334155] shadow-sm outline-none transition focus:border-[#64748b]"
+              >
+                <option value="todos">Todos</option>
+                <option value="receitas">Receitas</option>
+                <option value="despesas_pendentes">
+                  Contas a pagar
+                </option>
+                <option value="despesas_pagas">
+                  Pagas
+                </option>
+              </select>
+            </div>
+          </div>
+        </section>
+
         <section className="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
           <div className="space-y-5">
-            <section className="rounded-lg border border-[#d8dee8] bg-white">
-              <div className="border-b border-[#e2e8f0] px-4 py-4">
-                <h2 className="text-base font-semibold">
-                  Receitas do mês
-                </h2>
+            {mostrarReceitas ? (
+              <section className="rounded-lg border border-[#d8dee8] bg-white" aria-label="Receitas do mês">
+                <div className="border-b border-[#e2e8f0] px-4 py-4">
+                  <h2 className="text-base font-semibold">
+                    Receitas do mês
+                  </h2>
 
-                <p className="mt-1 text-sm text-[#64748b]">
-                  {receitasMes.length === 0
-                    ? "Nenhuma receita"
-                    : `${receitasMes.length} itens`}
-                </p>
-              </div>
-
-              <div className="divide-y divide-[#eef2f7]">
-                {receitasMes.length === 0 ? (
-                  <div className="px-4 py-6 text-sm text-[#64748b]">
-                    Nenhuma receita no mês.
-                  </div>
-                ) : (
-                  receitasMes.map((l) => (
-                    <div
-                      key={l.id}
-                      className="flex flex-wrap items-start justify-between gap-3 px-4 py-3"
-                    >
-                      <div className="min-w-[220px]">
-                        <div className="text-sm font-semibold">
-                          {l.descricao ||
-                            "(sem descrição)"}
-                        </div>
-
-                        <div className="text-xs text-[#64748b]">
-                          {l.data
-                            ? formatDate(l.data)
-                            : ""}
-                          {" • "}
-                          {l.categoria ||
-                            "Sem categoria"}
-                          {" • "}
-                          {l.conta || ""}
-                        </div>
-                      </div>
-
-                      <div className="text-sm font-semibold text-[#15803d]">
-                        {formatCurrency(
-                          lerValor(l.valor),
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-[#d8dee8] bg-white">
-              <div className="border-b border-[#e2e8f0] px-4 py-4">
-                <h2 className="text-base font-semibold">
-                  Contas a pagar
-                </h2>
-
-                <p className="mt-1 text-sm text-[#64748b]">
-                  Despesas pendentes no mês
-                </p>
-              </div>
-
-              <div className="divide-y divide-[#eef2f7]">
-                {despesasMesPendentes.length ===
-                0 ? (
-                  <div className="px-4 py-6 text-sm text-[#64748b]">
-                    Nenhuma despesa pendente no
-                    mês.
-                  </div>
-                ) : (
-                  despesasMesPendentes.map(
-                    (l) => (
-                      <ComprovanteDespesaItem
-                        key={l.id}
-                        lancamento={l}
-                        onMarcarPago={(
-                          comprovante,
-                        ) =>
-                          onMarcarPago(
-                            l.id,
-                            comprovante,
-                          )
-                        }
-                      />
-                    ),
-                  )
-                )}
-              </div>
-            </section>
-          </div>
-
-          <aside className="space-y-5">
-            <section className="rounded-lg border border-[#d8dee8] bg-white p-4">
-              <h2 className="text-base font-semibold">
-                Pagas no mês
-              </h2>
-
-              <p className="mt-1 text-sm text-[#64748b]">
-                Despesas marcadas como pagas
-              </p>
-
-              <div className="mt-4 space-y-3">
-                {despesasMesPagas.length ===
-                0 ? (
-                  <p className="text-sm text-[#64748b]">
-                    Sem despesas pagas no mês.
+                  <p className="mt-1 text-sm text-[#64748b]">
+                    {receitasMes.length === 0
+                      ? "Nenhuma receita"
+                      : `${receitasMes.length} itens`}
                   </p>
-                ) : (
-                  despesasMesPagas
-                    .slice(0, 10)
-                    .map((l) => (
+                </div>
+
+                <div className="divide-y divide-[#eef2f7]">
+                  {receitasMes.length === 0 ? (
+                    <div className="px-4 py-6 text-sm text-[#64748b]">
+                      Nenhuma receita no mês.
+                    </div>
+                  ) : (
+                    receitasMes.map((l) => (
                       <div
                         key={l.id}
-                        className="flex items-center justify-between gap-3"
+                        className="flex flex-wrap items-start justify-between gap-3 px-4 py-3"
                       >
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold">
-                            {l.descricao}
+                        <div className="min-w-[220px]">
+                          <div className="text-sm font-semibold">
+                            {l.descricao ||
+                              "(sem descrição)"}
                           </div>
 
-                          <div className="truncate text-xs text-[#64748b]">
-                            {l.conta}
+                          <div className="text-xs text-[#64748b]">
+                            {l.data
+                              ? formatDate(l.data)
+                              : ""}
+                            {" • "}
+                            {l.categoria ||
+                              "Sem categoria"}
+                            {" • "}
+                            {l.conta || ""}
                           </div>
                         </div>
 
-                        <div className="text-sm font-semibold text-[#b91c1c]">
+                        <div className="text-sm font-semibold text-[#15803d]">
                           {formatCurrency(
                             lerValor(l.valor),
                           )}
                         </div>
                       </div>
                     ))
-                )}
-              </div>
-            </section>
+                  )}
+                </div>
+              </section>
+            ) : null}
+
+            {mostrarPendentes ? (
+              <section className="rounded-lg border border-[#d8dee8] bg-white" aria-label="Contas a pagar">
+                <div className="border-b border-[#e2e8f0] px-4 py-4">
+                  <h2 className="text-base font-semibold">
+                    Contas a pagar
+                  </h2>
+
+                  <p className="mt-1 text-sm text-[#64748b]">
+                    Despesas pendentes no mês
+                  </p>
+                </div>
+
+                <div className="divide-y divide-[#eef2f7]">
+                  {despesasMesPendentes.length === 0 ? (
+                    <div className="px-4 py-6 text-sm text-[#64748b]">
+                      Nenhuma despesa pendente no mês.
+                    </div>
+                  ) : (
+                    despesasMesPendentes.map((l) => (
+                      <ComprovanteDespesaItem
+                        key={l.id}
+                        lancamento={l}
+                        onMarcarPago={(comprovante) =>
+                          onMarcarPago(
+                            l.id,
+                            comprovante,
+                          )
+                        }
+                      />
+                    ))
+                  )}
+                </div>
+              </section>
+            ) : null}
+          </div>
+
+          <aside className="space-y-5">
+            {mostrarPagas ? (
+              <section className="rounded-lg border border-[#d8dee8] bg-white p-4" aria-label="Pagas no mês">
+                <h2 className="text-base font-semibold">
+                  Pagas no mês
+                </h2>
+
+                <p className="mt-1 text-sm text-[#64748b]">
+                  Despesas marcadas como pagas
+                </p>
+
+                <div className="mt-4 space-y-3">
+                  {despesasMesPagas.length === 0 ? (
+                    <p className="text-sm text-[#64748b]">
+                      Sem despesas pagas no mês.
+                    </p>
+                  ) : (
+                    despesasMesPagas
+                      .slice(0, 10)
+                      .map((l) => (
+                        <div
+                          key={l.id}
+                          className="flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold">
+                              {l.descricao}
+                            </div>
+
+                            <div className="truncate text-xs text-[#64748b]">
+                              {l.conta}
+                            </div>
+                          </div>
+
+                          <div className="text-sm font-semibold text-[#b91c1c]">
+                            {formatCurrency(
+                              lerValor(l.valor),
+                            )}
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </section>
+            ) : null}
           </aside>
         </section>
       </div>
