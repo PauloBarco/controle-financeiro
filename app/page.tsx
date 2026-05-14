@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { formatCurrency, formatDate, formatDateInput, getCurrentMonthRange } from "@/lib/format";
@@ -8,6 +9,12 @@ type TipoLancamento = "receita" | "despesa";
 type StatusLancamento = "pago" | "pendente";
 type FiltroTipo = "todos" | TipoLancamento;
 
+type Comprovante = {
+  nome: string;
+  tipo: string;
+  dataUrl: string;
+};
+
 type LancamentoPlanilha = {
   id: string;
   data: string;
@@ -15,9 +22,11 @@ type LancamentoPlanilha = {
   descricao: string;
   categoria: string;
   conta: string;
+  formaPagamento: string;
   valor: string;
   status: StatusLancamento;
   observacao: string;
+  comprovante?: Comprovante;
 };
 
 type CampoLancamento = keyof LancamentoPlanilha;
@@ -51,6 +60,15 @@ const contasSugeridas = [
   "Poupanca",
 ];
 
+const formasPagamento = [
+  "Pix",
+  "Cartao de debito",
+  "Cartao de credito",
+  "Dinheiro",
+  "Boleto",
+  "Transferencia",
+];
+
 function criarId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -67,9 +85,36 @@ function criarLinhaVazia(): LancamentoPlanilha {
     descricao: "",
     categoria: "",
     conta: "",
+    formaPagamento: "",
     valor: "",
     status: "pago",
     observacao: "",
+  };
+}
+
+function inferirFormaPagamento(conta?: string) {
+  const texto = (conta || "").toLowerCase();
+
+  if (texto.includes("credito")) return "Cartao de credito";
+  if (texto.includes("debito")) return "Cartao de debito";
+  if (texto.includes("pix")) return "Pix";
+  if (texto.includes("dinheiro")) return "Dinheiro";
+
+  return "";
+}
+
+function normalizarComprovante(comprovante: unknown): Comprovante | undefined {
+  if (!comprovante || typeof comprovante !== "object") return undefined;
+
+  const item = comprovante as Partial<Comprovante>;
+  const dataUrl = String(item.dataUrl || "");
+
+  if (!dataUrl) return undefined;
+
+  return {
+    nome: String(item.nome || "comprovante"),
+    tipo: String(item.tipo || ""),
+    dataUrl,
   };
 }
 
@@ -81,12 +126,14 @@ function normalizarLancamento(item: Partial<LancamentoPlanilha>): LancamentoPlan
     descricao: item.descricao || "",
     categoria: item.categoria || "",
     conta: item.conta || "",
+    formaPagamento: item.formaPagamento || inferirFormaPagamento(item.conta),
     valor:
       item.valor === undefined || item.valor === null
         ? ""
         : String(item.valor).replace(",", "."),
     status: item.status === "pendente" ? "pendente" : "pago",
     observacao: item.observacao || "",
+    comprovante: normalizarComprovante(item.comprovante),
   };
 }
 
@@ -147,9 +194,11 @@ function montarCsv(lancamentos: LancamentoPlanilha[]) {
     "descricao",
     "categoria",
     "conta",
+    "forma_pagamento",
     "valor",
     "status",
     "observacao",
+    "comprovante",
   ];
 
   const linhas = lancamentos.map((lancamento) =>
@@ -159,9 +208,11 @@ function montarCsv(lancamentos: LancamentoPlanilha[]) {
       lancamento.descricao,
       lancamento.categoria,
       lancamento.conta,
+      lancamento.formaPagamento,
       lerValor(lancamento.valor).toFixed(2).replace(".", ","),
       lancamento.status,
       lancamento.observacao,
+      lancamento.comprovante?.nome || "",
     ]
       .map(escaparCsv)
       .join(";"),
@@ -222,6 +273,7 @@ export default function Home() {
             lancamento.descricao,
             lancamento.categoria,
             lancamento.conta,
+            lancamento.formaPagamento,
             lancamento.observacao,
           ]
             .join(" ")
@@ -315,13 +367,21 @@ export default function Home() {
       title="Planilha domestica"
       subtitle="Controle simples para receitas e despesas da casa"
       action={
-        <button
-          type="button"
-          onClick={adicionarLinha}
-          className="inline-flex h-10 items-center rounded-md bg-[#16a34a] px-4 text-sm font-semibold text-white transition hover:bg-[#15803d]"
-        >
-          Nova linha
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/resumo-mes"
+            className="inline-flex h-10 items-center rounded-md bg-[#2563eb] px-4 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]"
+          >
+            Ver resumo do mes
+          </Link>
+          <button
+            type="button"
+            onClick={adicionarLinha}
+            className="inline-flex h-10 items-center rounded-md bg-[#16a34a] px-4 text-sm font-semibold text-white transition hover:bg-[#15803d]"
+          >
+            Nova linha
+          </button>
+        </div>
       }
     >
       <div className="space-y-5">
@@ -425,7 +485,7 @@ export default function Home() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1120px] border-collapse text-sm">
+              <table className="w-full min-w-[1280px] border-collapse text-sm">
                 <thead className="bg-[#f8fafc] text-left text-xs font-semibold uppercase tracking-normal text-[#64748b]">
                   <tr>
                     <th className="w-[132px] border-b border-[#e2e8f0] px-3 py-3">
@@ -442,6 +502,9 @@ export default function Home() {
                     </th>
                     <th className="w-[160px] border-b border-[#e2e8f0] px-3 py-3">
                       Conta
+                    </th>
+                    <th className="w-[160px] border-b border-[#e2e8f0] px-3 py-3">
+                      Pagamento
                     </th>
                     <th className="w-[130px] border-b border-[#e2e8f0] px-3 py-3 text-right">
                       Valor
@@ -460,7 +523,7 @@ export default function Home() {
                 <tbody>
                   {lancamentosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-sm text-[#64748b]">
+                      <td colSpan={10} className="px-4 py-8 text-center text-sm text-[#64748b]">
                         Nenhum lancamento encontrado.
                       </td>
                     </tr>
@@ -528,6 +591,26 @@ export default function Home() {
                             placeholder="Conta"
                             className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white"
                           />
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <select
+                            value={lancamento.formaPagamento}
+                            onChange={(event) =>
+                              atualizarLinha(
+                                lancamento.id,
+                                "formaPagamento",
+                                event.target.value,
+                              )
+                            }
+                            className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white"
+                          >
+                            <option value="">Selecione</option>
+                            {formasPagamento.map((forma) => (
+                              <option key={forma} value={forma}>
+                                {forma}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td className="px-3 py-2 align-top">
                           <input

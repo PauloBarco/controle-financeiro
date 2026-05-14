@@ -31,6 +31,17 @@ export function getCurrentMonthRange() {
   };
 }
 
+export function getCurrentFullMonthRange() {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+  return {
+    start: formatDateInput(start),
+    end: formatDateInput(end),
+  };
+}
+
 export function getNextDate(date: string) {
   const nextDate = new Date(`${date}T00:00:00`);
   nextDate.setDate(nextDate.getDate() + 1);
