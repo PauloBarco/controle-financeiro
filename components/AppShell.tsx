@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 const navigation = [
   { href: "/", label: "Planilha" },
   { href: "/resumo-mes", label: "Resumo do mes" },
+  { href: "/login", label: "Nuvem" },
 ];
 
 type AppShellProps = {

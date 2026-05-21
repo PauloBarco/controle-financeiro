@@ -4,38 +4,52 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import AppShell from "@/components/AppShell";
+import BackupLancamentos from "@/components/BackupLancamentos";
 import {
   formatCurrency,
   formatDate,
   formatDateInput,
   getCurrentFullMonthRange,
 } from "@/lib/format";
+import {
+  categoriasDespesa,
+  categoriasReceita,
+  contasSugeridas,
+  criarId,
+  formasPagamento,
+  lerValor,
+} from "@/lib/lancamentos";
+import {
+  lerLancamentosSalvos,
+  salvarLancamentos,
+} from "@/lib/storage-lancamentos";
+import {
+  criarLancamentoDeRecorrencia,
+  lerFechamentosSalvos,
+  lerMetasSalvas,
+  lerRecorrenciasSalvas,
+  obterChaveMes,
+  salvarFechamentos,
+  salvarMetas,
+  salvarRecorrencias,
+} from "@/lib/planejamento";
+import type {
+  Comprovante,
+  LancamentoPlanilha,
+  StatusLancamento,
+  TipoLancamento,
+} from "@/lib/lancamentos";
+import type {
+  FechamentoMes,
+  LancamentoRecorrente,
+  MetaCategoria,
+  StatusFechamentoMes,
+} from "@/lib/planejamento";
 
-type TipoLancamento = "receita" | "despesa";
-type StatusLancamento = "pago" | "pendente";
-type FiltroContas = "todas" | "pendentes" | "pagas";
+type FiltroResumo = "todos" | "receitas" | "pendentes" | "pagas";
 
-type Comprovante = {
-  nome: string;
-  tipo: string;
-  dataUrl: string;
-};
-
-type LancamentoPlanilha = {
-  id: string;
-  data: string;
+type NovoLancamentoForm = {
   tipo: TipoLancamento;
-  descricao: string;
-  categoria: string;
-  conta: string;
-  formaPagamento: string;
-  valor: string;
-  status: StatusLancamento;
-  observacao: string;
-  comprovante?: Comprovante;
-};
-
-type NovoGastoForm = {
   data: string;
   descricao: string;
   categoria: string;
@@ -46,95 +60,22 @@ type NovoGastoForm = {
   observacao: string;
 };
 
-const STORAGE_KEY = "controle-financeiro-domestico-v1";
+type RecorrenciaForm = {
+  tipo: TipoLancamento;
+  dia: string;
+  descricao: string;
+  categoria: string;
+  conta: string;
+  formaPagamento: string;
+  valor: string;
+  status: StatusLancamento;
+  observacao: string;
+};
 
-const categoriasDespesa = [
-  "Mercado",
-  "Moradia",
-  "Transporte",
-  "Saude",
-  "Educacao",
-  "Lazer",
-  "Cartao",
-  "Conta fixa",
-  "Outros",
-];
-
-const contasSugeridas = [
-  "Conta corrente",
-  "Cartao de credito",
-  "Dinheiro",
-  "Pix",
-  "Poupanca",
-];
-
-const formasPagamento = [
-  "Pix",
-  "Cartao de debito",
-  "Cartao de credito",
-  "Dinheiro",
-  "Boleto",
-  "Transferencia",
-];
-
-function criarId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function inferirFormaPagamento(conta?: string) {
-  const texto = (conta || "").toLowerCase();
-
-  if (texto.includes("credito")) return "Cartao de credito";
-  if (texto.includes("debito")) return "Cartao de debito";
-  if (texto.includes("pix")) return "Pix";
-  if (texto.includes("dinheiro")) return "Dinheiro";
-
-  return "";
-}
-
-function normalizarComprovante(comprovante: unknown): Comprovante | undefined {
-  if (!comprovante || typeof comprovante !== "object") return undefined;
-
-  const item = comprovante as Partial<Comprovante>;
-  const dataUrl = String(item.dataUrl || "");
-
-  if (!dataUrl) return undefined;
-
-  return {
-    nome: String(item.nome || "comprovante"),
-    tipo: String(item.tipo || ""),
-    dataUrl,
-  };
-}
-
-function normalizarLancamento(item: Partial<LancamentoPlanilha>): LancamentoPlanilha {
-  return {
-    id: item.id || criarId(),
-    data: item.data || formatDateInput(new Date()),
-    tipo: item.tipo === "receita" ? "receita" : "despesa",
-    descricao: item.descricao || "",
-    categoria: item.categoria || "",
-    conta: item.conta || "",
-    formaPagamento: item.formaPagamento || inferirFormaPagamento(item.conta),
-    valor:
-      item.valor === undefined || item.valor === null
-        ? ""
-        : String(item.valor).replace(",", "."),
-    status: item.status === "pendente" ? "pendente" : "pago",
-    observacao: item.observacao || "",
-    comprovante: normalizarComprovante(item.comprovante),
-  };
-}
-
-function lerValor(valor: string) {
-  const numero = Number(String(valor).replace(",", "."));
-
-  return Number.isFinite(numero) ? numero : 0;
-}
+type MetaForm = {
+  categoria: string;
+  limite: string;
+};
 
 function montarDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -146,8 +87,9 @@ function montarDataUrl(file: File): Promise<string> {
   });
 }
 
-function criarFormularioInicial(): NovoGastoForm {
+function criarFormularioInicial(): NovoLancamentoForm {
   return {
+    tipo: "despesa",
     data: formatDateInput(new Date()),
     descricao: "",
     categoria: "",
@@ -159,18 +101,43 @@ function criarFormularioInicial(): NovoGastoForm {
   };
 }
 
+function criarRecorrenciaInicial(): RecorrenciaForm {
+  return {
+    tipo: "despesa",
+    dia: "5",
+    descricao: "",
+    categoria: "",
+    conta: "",
+    formaPagamento: "",
+    valor: "",
+    status: "pendente",
+    observacao: "",
+  };
+}
+
+function criarMetaInicial(): MetaForm {
+  return {
+    categoria: "",
+    limite: "",
+  };
+}
+
 type ResumoCardProps = {
   titulo: string;
   valor: number | string;
-  tom: "neutro" | "despesa" | "pago" | "pendente";
+  tom: "neutro" | "receita" | "despesa" | "pago" | "pendente" | "saldo";
 };
 
 function ResumoCard({ titulo, valor, tom }: ResumoCardProps) {
   const cor =
-    tom === "pago"
+    tom === "receita" || tom === "pago"
       ? "text-[#15803d]"
       : tom === "pendente" || tom === "despesa"
         ? "text-[#b91c1c]"
+        : tom === "saldo" && typeof valor === "number"
+          ? valor >= 0
+            ? "text-[#15803d]"
+            : "text-[#b91c1c]"
         : "text-[#111827]";
 
   return (
@@ -338,6 +305,80 @@ function ContaMesItem({
   );
 }
 
+type ReceitaMesItemProps = {
+  lancamento: LancamentoPlanilha;
+};
+
+function ReceitaMesItem({ lancamento }: ReceitaMesItemProps) {
+  return (
+    <div className="px-4 py-4">
+      <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold">
+              {lancamento.descricao || "(sem descricao)"}
+            </h3>
+            <span className="rounded-md bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#166534]">
+              Receita
+            </span>
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#64748b]">
+            <span>{formatDate(lancamento.data)}</span>
+            <span>{lancamento.categoria || "Sem categoria"}</span>
+            <span>{lancamento.conta || "Sem conta"}</span>
+            <span>{lancamento.formaPagamento || "Sem forma de recebimento"}</span>
+          </div>
+
+          {lancamento.observacao ? (
+            <p className="mt-2 text-xs text-[#64748b]">{lancamento.observacao}</p>
+          ) : null}
+        </div>
+
+        <div className="text-base font-semibold text-[#15803d]">
+          {formatCurrency(lerValor(lancamento.valor))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type ListaReceitasProps = {
+  receitas: LancamentoPlanilha[];
+};
+
+function ListaReceitas({ receitas }: ListaReceitasProps) {
+  return (
+    <section className="rounded-lg border border-[#d8dee8] bg-white">
+      <div className="border-b border-[#e2e8f0] px-4 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Receitas</h2>
+            <p className="mt-1 text-sm text-[#64748b]">
+              Entradas registradas dentro do mes atual
+            </p>
+          </div>
+          <span className="rounded-md bg-[#f1f5f9] px-2 py-1 text-xs font-semibold text-[#334155]">
+            {receitas.length} itens
+          </span>
+        </div>
+      </div>
+
+      <div className="divide-y divide-[#eef2f7]">
+        {receitas.length === 0 ? (
+          <div className="px-4 py-8 text-sm text-[#64748b]">
+            Nenhuma receita neste mes.
+          </div>
+        ) : (
+          receitas.map((lancamento) => (
+            <ReceitaMesItem key={lancamento.id} lancamento={lancamento} />
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
 type ListaContasProps = {
   titulo: string;
   descricao: string;
@@ -395,26 +436,25 @@ function ListaContas({
 export default function ResumoMesPage() {
   const rangeInicial = useMemo(() => getCurrentFullMonthRange(), []);
   const [lancamentos, setLancamentos] = useState<LancamentoPlanilha[]>([]);
-  const [filtroContas, setFiltroContas] = useState<FiltroContas>("todas");
-  const [form, setForm] = useState<NovoGastoForm>(() => criarFormularioInicial());
+  const [filtroResumo, setFiltroResumo] = useState<FiltroResumo>("todos");
+  const [form, setForm] = useState<NovoLancamentoForm>(() =>
+    criarFormularioInicial(),
+  );
+  const [recorrencias, setRecorrencias] = useState<LancamentoRecorrente[]>([]);
+  const [recorrenciaForm, setRecorrenciaForm] = useState<RecorrenciaForm>(() =>
+    criarRecorrenciaInicial(),
+  );
+  const [metas, setMetas] = useState<MetaCategoria[]>([]);
+  const [metaForm, setMetaForm] = useState<MetaForm>(() => criarMetaInicial());
+  const [fechamentos, setFechamentos] = useState<Record<string, FechamentoMes>>({});
   const [carregado, setCarregado] = useState(false);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      const salvo = window.localStorage.getItem(STORAGE_KEY);
-
-      if (salvo) {
-        try {
-          const dados = JSON.parse(salvo);
-
-          if (Array.isArray(dados)) {
-            setLancamentos(dados.map(normalizarLancamento));
-          }
-        } catch (error) {
-          console.error("Erro ao carregar lancamentos:", error);
-        }
-      }
-
+      setLancamentos(lerLancamentosSalvos(window.localStorage));
+      setRecorrencias(lerRecorrenciasSalvas(window.localStorage));
+      setMetas(lerMetasSalvas(window.localStorage));
+      setFechamentos(lerFechamentosSalvos(window.localStorage));
       setCarregado(true);
     }, 0);
 
@@ -423,7 +463,22 @@ export default function ResumoMesPage() {
 
   function persistir(next: LancamentoPlanilha[]) {
     setLancamentos(next);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    salvarLancamentos(window.localStorage, next);
+  }
+
+  function persistirRecorrencias(next: LancamentoRecorrente[]) {
+    setRecorrencias(next);
+    salvarRecorrencias(window.localStorage, next);
+  }
+
+  function persistirMetas(next: MetaCategoria[]) {
+    setMetas(next);
+    salvarMetas(window.localStorage, next);
+  }
+
+  function persistirFechamentos(next: Record<string, FechamentoMes>) {
+    setFechamentos(next);
+    salvarFechamentos(window.localStorage, next);
   }
 
   const lancamentosMes = useMemo(() => {
@@ -435,6 +490,11 @@ export default function ResumoMesPage() {
       )
       .sort((a, b) => a.data.localeCompare(b.data));
   }, [lancamentos, rangeInicial.end, rangeInicial.start]);
+
+  const receitasMes = useMemo(
+    () => lancamentosMes.filter((lancamento) => lancamento.tipo === "receita"),
+    [lancamentosMes],
+  );
 
   const contasMes = useMemo(
     () => lancamentosMes.filter((lancamento) => lancamento.tipo === "despesa"),
@@ -451,10 +511,22 @@ export default function ResumoMesPage() {
     [contasMes],
   );
 
+  const mesAtual = obterChaveMes(rangeInicial.start);
+  const fechamentoAtual = fechamentos[mesAtual] || {
+    mes: mesAtual,
+    status: "aberto" as StatusFechamentoMes,
+    atualizadoEm: "",
+  };
+
   const totais = useMemo(() => {
-    return contasMes.reduce(
+    return lancamentosMes.reduce(
       (acc, lancamento) => {
         const valor = lerValor(lancamento.valor);
+
+        if (lancamento.tipo === "receita") {
+          acc.receitas += valor;
+          return acc;
+        }
 
         acc.gastos += valor;
 
@@ -471,13 +543,14 @@ export default function ResumoMesPage() {
         return acc;
       },
       {
+        receitas: 0,
         gastos: 0,
         pendente: 0,
         pago: 0,
         comprovantes: 0,
       },
     );
-  }, [contasMes]);
+  }, [lancamentosMes]);
 
   const gastosPorPagamento = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -492,31 +565,189 @@ export default function ResumoMesPage() {
       .sort((a, b) => b.total - a.total);
   }, [contasMes]);
 
-  function atualizarCampo(campo: keyof NovoGastoForm, valor: string) {
+  const metasComUso = useMemo(() => {
+    return metas.map((meta) => {
+      const gasto = contasMes
+        .filter((lancamento) => lancamento.categoria === meta.categoria)
+        .reduce((total, lancamento) => total + lerValor(lancamento.valor), 0);
+      const limite = lerValor(meta.limite);
+      const percentual = limite > 0 ? Math.min((gasto / limite) * 100, 100) : 0;
+
+      return {
+        ...meta,
+        gasto,
+        limite,
+        percentual,
+        excedeu: limite > 0 && gasto > limite,
+      };
+    });
+  }, [contasMes, metas]);
+
+  function atualizarCampo(campo: keyof NovoLancamentoForm, valor: string) {
+    if (campo === "tipo") {
+      const tipo = valor as TipoLancamento;
+
+      setForm((atual) => ({
+        ...atual,
+        tipo,
+        categoria: "",
+        status: tipo === "receita" ? "pago" : "pendente",
+      }));
+      return;
+    }
+
     setForm((atual) => ({
       ...atual,
       [campo]: valor,
     }));
   }
 
-  function adicionarGasto(event: FormEvent<HTMLFormElement>) {
+  function atualizarRecorrenciaCampo(campo: keyof RecorrenciaForm, valor: string) {
+    if (campo === "tipo") {
+      const tipo = valor as TipoLancamento;
+
+      setRecorrenciaForm((atual) => ({
+        ...atual,
+        tipo,
+        categoria: "",
+        status: tipo === "receita" ? "pago" : "pendente",
+      }));
+      return;
+    }
+
+    setRecorrenciaForm((atual) => ({
+      ...atual,
+      [campo]: valor,
+    }));
+  }
+
+  function adicionarRecorrencia(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!recorrenciaForm.descricao.trim() || lerValor(recorrenciaForm.valor) <= 0) {
+      alert("Informe descricao e valor da recorrencia.");
+      return;
+    }
+
+    const novaRecorrencia: LancamentoRecorrente = {
+      id: criarId(),
+      tipo: recorrenciaForm.tipo,
+      dia: recorrenciaForm.dia,
+      descricao: recorrenciaForm.descricao.trim(),
+      categoria: recorrenciaForm.categoria.trim(),
+      conta: recorrenciaForm.conta.trim(),
+      formaPagamento: recorrenciaForm.formaPagamento,
+      valor: recorrenciaForm.valor.replace(",", "."),
+      status:
+        recorrenciaForm.tipo === "receita" ? "pago" : recorrenciaForm.status,
+      observacao: recorrenciaForm.observacao.trim(),
+      ativo: true,
+    };
+
+    persistirRecorrencias([novaRecorrencia, ...recorrencias]);
+    setRecorrenciaForm((atual) => ({
+      ...criarRecorrenciaInicial(),
+      tipo: atual.tipo,
+      status: atual.tipo === "receita" ? "pago" : "pendente",
+    }));
+  }
+
+  function alternarRecorrencia(id: string) {
+    persistirRecorrencias(
+      recorrencias.map((recorrencia) =>
+        recorrencia.id === id
+          ? { ...recorrencia, ativo: !recorrencia.ativo }
+          : recorrencia,
+      ),
+    );
+  }
+
+  function removerRecorrencia(id: string) {
+    if (!confirm("Remover esta recorrencia?")) return;
+
+    persistirRecorrencias(
+      recorrencias.filter((recorrencia) => recorrencia.id !== id),
+    );
+  }
+
+  function gerarRecorrenciasDoMes() {
+    const recorrenciasGeradas = new Set(
+      lancamentos
+        .filter((lancamento) => lancamento.mesReferencia === mesAtual)
+        .map((lancamento) => lancamento.recorrenciaId)
+        .filter(Boolean),
+    );
+    const novas = recorrencias
+      .filter((recorrencia) => recorrencia.ativo)
+      .filter((recorrencia) => !recorrenciasGeradas.has(recorrencia.id))
+      .map((recorrencia) =>
+        criarLancamentoDeRecorrencia(recorrencia, rangeInicial.start),
+      );
+
+    if (novas.length === 0) {
+      alert("Nenhuma recorrencia nova para gerar neste mes.");
+      return;
+    }
+
+    persistir([...novas, ...lancamentos]);
+    alert(`${novas.length} lancamentos recorrentes gerados.`);
+  }
+
+  function salvarMetaCategoria(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const categoria = metaForm.categoria.trim();
+    const limite = metaForm.limite.replace(",", ".");
+
+    if (!categoria || lerValor(limite) <= 0) {
+      alert("Informe categoria e limite da meta.");
+      return;
+    }
+
+    const existente = metas.find((meta) => meta.categoria === categoria);
+    const next = existente
+      ? metas.map((meta) =>
+          meta.id === existente.id ? { ...meta, limite } : meta,
+        )
+      : [{ id: criarId(), categoria, limite }, ...metas];
+
+    persistirMetas(next);
+    setMetaForm(criarMetaInicial());
+  }
+
+  function removerMeta(id: string) {
+    persistirMetas(metas.filter((meta) => meta.id !== id));
+  }
+
+  function alterarFechamento(status: StatusFechamentoMes) {
+    persistirFechamentos({
+      ...fechamentos,
+      [mesAtual]: {
+        mes: mesAtual,
+        status,
+        atualizadoEm: new Date().toISOString(),
+      },
+    });
+  }
+
+  function adicionarLancamento(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!form.descricao.trim() && !form.valor.trim()) {
-      alert("Informe pelo menos a descricao ou o valor do gasto.");
+      alert("Informe pelo menos a descricao ou o valor do lancamento.");
       return;
     }
 
     const novoLancamento: LancamentoPlanilha = {
       id: criarId(),
       data: form.data || formatDateInput(new Date()),
-      tipo: "despesa",
+      tipo: form.tipo,
       descricao: form.descricao.trim(),
       categoria: form.categoria.trim(),
       conta: form.conta.trim(),
       formaPagamento: form.formaPagamento,
       valor: form.valor.replace(",", "."),
-      status: form.status,
+      status: form.tipo === "receita" ? "pago" : form.status,
       observacao: form.observacao.trim(),
     };
 
@@ -524,7 +755,8 @@ export default function ResumoMesPage() {
     setForm((atual) => ({
       ...criarFormularioInicial(),
       data: atual.data,
-      status: "pendente",
+      tipo: atual.tipo,
+      status: atual.tipo === "receita" ? "pago" : "pendente",
     }));
   }
 
@@ -557,51 +789,63 @@ export default function ResumoMesPage() {
     );
   }
 
-  const mostrarPendentes = filtroContas === "todas" || filtroContas === "pendentes";
-  const mostrarPagas = filtroContas === "todas" || filtroContas === "pagas";
+  const mostrarReceitas = filtroResumo === "todos" || filtroResumo === "receitas";
+  const mostrarPendentes = filtroResumo === "todos" || filtroResumo === "pendentes";
+  const mostrarPagas = filtroResumo === "todos" || filtroResumo === "pagas";
 
   return (
     <AppShell
       title="Resumo do mes"
       subtitle={`${formatDate(rangeInicial.start)} - ${formatDate(
         rangeInicial.end,
-      )} com contas a pagar, pagas e comprovantes`}
+      )} com receitas, contas a pagar, pagas e comprovantes`}
+      action={
+        <BackupLancamentos
+          lancamentos={lancamentos}
+          onImportar={(lancamentosImportados) => {
+            persistir(lancamentosImportados);
+            setCarregado(true);
+          }}
+        />
+      }
     >
       <div className="space-y-5">
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <ResumoCard titulo="Receitas" valor={totais.receitas} tom="receita" />
           <ResumoCard titulo="A pagar" valor={totais.pendente} tom="pendente" />
           <ResumoCard titulo="Ja pagas" valor={totais.pago} tom="pago" />
           <ResumoCard titulo="Gastos do mes" valor={totais.gastos} tom="despesa" />
           <ResumoCard
-            titulo="Com comprovante"
-            valor={`${totais.comprovantes}/${contasMes.length}`}
-            tom="neutro"
+            titulo="Saldo"
+            valor={totais.receitas - totais.gastos}
+            tom="saldo"
           />
         </section>
 
         <section className="rounded-lg border border-[#d8dee8] bg-white p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-base font-semibold">Visao das contas do mes</h2>
+              <h2 className="text-base font-semibold">Direcionamento do resumo</h2>
               <p className="mt-1 text-sm text-[#64748b]">
                 {carregado
-                  ? `${contasMes.length} contas encontradas no periodo`
-                  : "Carregando contas salvas..."}
+                  ? `${lancamentosMes.length} lancamentos encontrados no periodo`
+                  : "Carregando lancamentos salvos..."}
               </p>
             </div>
 
             <div className="inline-flex w-full rounded-md border border-[#cbd5e1] bg-[#f8fafc] p-1 sm:w-auto">
               {[
-                { value: "todas", label: "Todas" },
+                { value: "todos", label: "Todos" },
+                { value: "receitas", label: "Receitas" },
                 { value: "pendentes", label: "A pagar" },
                 { value: "pagas", label: "Pagas" },
               ].map((item) => (
                 <button
                   key={item.value}
                   type="button"
-                  onClick={() => setFiltroContas(item.value as FiltroContas)}
+                  onClick={() => setFiltroResumo(item.value as FiltroResumo)}
                   className={`h-9 flex-1 rounded-md px-3 text-sm font-semibold transition sm:flex-none ${
-                    filtroContas === item.value
+                    filtroResumo === item.value
                       ? "bg-white text-[#111827] shadow-sm"
                       : "text-[#64748b] hover:text-[#111827]"
                   }`}
@@ -615,16 +859,30 @@ export default function ResumoMesPage() {
 
         <section className="rounded-lg border border-[#d8dee8] bg-white p-4">
           <div className="mb-4">
-            <h2 className="text-base font-semibold">Adicionar gasto do mes</h2>
+            <h2 className="text-base font-semibold">Adicionar lancamento do mes</h2>
             <p className="mt-1 text-sm text-[#64748b]">
-              Cadastre uma conta, compra ou pagamento avulso direto neste resumo.
+              Cadastre entradas e saidas direto neste resumo.
             </p>
           </div>
 
           <form
-            onSubmit={adicionarGasto}
-            className="grid gap-3 lg:grid-cols-[0.9fr_1.5fr_1fr_1fr_1fr_0.9fr_0.9fr] lg:items-end"
+            onSubmit={adicionarLancamento}
+            className="grid gap-3 md:grid-cols-2 xl:grid-cols-8 xl:items-end"
           >
+            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+              Tipo
+              <select
+                value={form.tipo}
+                onChange={(event) =>
+                  atualizarCampo("tipo", event.target.value as TipoLancamento)
+                }
+                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+              >
+                <option value="despesa">Despesa</option>
+                <option value="receita">Receita</option>
+              </select>
+            </label>
+
             <label className="grid gap-1 text-sm font-medium text-[#334155]">
               Data
               <input
@@ -635,12 +893,14 @@ export default function ResumoMesPage() {
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
-              Gasto
+            <label className="grid gap-1 text-sm font-medium text-[#334155] xl:col-span-2">
+              Lancamento
               <input
                 value={form.descricao}
                 onChange={(event) => atualizarCampo("descricao", event.target.value)}
-                placeholder="Ex.: compra do mercado"
+                placeholder={
+                  form.tipo === "receita" ? "Ex.: salario" : "Ex.: compra do mercado"
+                }
                 className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
@@ -648,10 +908,14 @@ export default function ResumoMesPage() {
             <label className="grid gap-1 text-sm font-medium text-[#334155]">
               Categoria
               <input
-                list="categorias-despesa-resumo"
+                list={
+                  form.tipo === "despesa"
+                    ? "categorias-despesa-resumo"
+                    : "categorias-receita-resumo"
+                }
                 value={form.categoria}
                 onChange={(event) => atualizarCampo("categoria", event.target.value)}
-                placeholder="Ex.: Mercado"
+                placeholder={form.tipo === "receita" ? "Ex.: Salario" : "Ex.: Mercado"}
                 className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
@@ -668,7 +932,7 @@ export default function ResumoMesPage() {
             </label>
 
             <label className="grid gap-1 text-sm font-medium text-[#334155]">
-              Pagamento
+              Forma
               <select
                 value={form.formaPagamento}
                 onChange={(event) => atualizarCampo("formaPagamento", event.target.value)}
@@ -696,21 +960,23 @@ export default function ResumoMesPage() {
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
-              Status
-              <select
-                value={form.status}
-                onChange={(event) =>
-                  atualizarCampo("status", event.target.value as StatusLancamento)
-                }
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
-              >
-                <option value="pendente">Pendente</option>
-                <option value="pago">Pago</option>
-              </select>
-            </label>
+            {form.tipo === "despesa" ? (
+              <label className="grid gap-1 text-sm font-medium text-[#334155]">
+                Status
+                <select
+                  value={form.status}
+                  onChange={(event) =>
+                    atualizarCampo("status", event.target.value as StatusLancamento)
+                  }
+                  className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                >
+                  <option value="pendente">Pendente</option>
+                  <option value="pago">Pago</option>
+                </select>
+              </label>
+            ) : null}
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155] lg:col-span-6">
+            <label className="grid gap-1 text-sm font-medium text-[#334155] xl:col-span-7">
               Observacao
               <input
                 value={form.observacao}
@@ -729,8 +995,232 @@ export default function ResumoMesPage() {
           </form>
         </section>
 
+        <section className="rounded-lg border border-[#d8dee8] bg-white p-4">
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="text-base font-semibold">Recorrencias do mes</h2>
+              <p className="mt-1 text-sm text-[#64748b]">
+                Cadastre contas fixas e entradas recorrentes para gerar no mes atual.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={gerarRecorrenciasDoMes}
+              className="h-10 rounded-md bg-[#2563eb] px-4 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]"
+            >
+              Gerar mes
+            </button>
+          </div>
+
+          <form
+            onSubmit={adicionarRecorrencia}
+            className="grid gap-3 md:grid-cols-2 xl:grid-cols-8 xl:items-end"
+          >
+            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+              Tipo
+              <select
+                value={recorrenciaForm.tipo}
+                onChange={(event) =>
+                  atualizarRecorrenciaCampo(
+                    "tipo",
+                    event.target.value as TipoLancamento,
+                  )
+                }
+                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+              >
+                <option value="despesa">Despesa</option>
+                <option value="receita">Receita</option>
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+              Dia
+              <input
+                type="number"
+                min="1"
+                max="31"
+                value={recorrenciaForm.dia}
+                onChange={(event) =>
+                  atualizarRecorrenciaCampo("dia", event.target.value)
+                }
+                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-medium text-[#334155] xl:col-span-2">
+              Descricao
+              <input
+                value={recorrenciaForm.descricao}
+                onChange={(event) =>
+                  atualizarRecorrenciaCampo("descricao", event.target.value)
+                }
+                placeholder={
+                  recorrenciaForm.tipo === "receita"
+                    ? "Ex.: salario"
+                    : "Ex.: internet"
+                }
+                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+              Categoria
+              <input
+                list={
+                  recorrenciaForm.tipo === "despesa"
+                    ? "categorias-despesa-resumo"
+                    : "categorias-receita-resumo"
+                }
+                value={recorrenciaForm.categoria}
+                onChange={(event) =>
+                  atualizarRecorrenciaCampo("categoria", event.target.value)
+                }
+                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+              Conta
+              <input
+                list="contas-sugeridas-resumo"
+                value={recorrenciaForm.conta}
+                onChange={(event) =>
+                  atualizarRecorrenciaCampo("conta", event.target.value)
+                }
+                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+              Forma
+              <select
+                value={recorrenciaForm.formaPagamento}
+                onChange={(event) =>
+                  atualizarRecorrenciaCampo("formaPagamento", event.target.value)
+                }
+                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+              >
+                <option value="">Selecione</option>
+                {formasPagamento.map((forma) => (
+                  <option key={forma} value={forma}>
+                    {forma}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+              Valor
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={recorrenciaForm.valor}
+                onChange={(event) =>
+                  atualizarRecorrenciaCampo("valor", event.target.value)
+                }
+                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+              />
+            </label>
+
+            {recorrenciaForm.tipo === "despesa" ? (
+              <label className="grid gap-1 text-sm font-medium text-[#334155]">
+                Status
+                <select
+                  value={recorrenciaForm.status}
+                  onChange={(event) =>
+                    atualizarRecorrenciaCampo(
+                      "status",
+                      event.target.value as StatusLancamento,
+                    )
+                  }
+                  className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                >
+                  <option value="pendente">Pendente</option>
+                  <option value="pago">Pago</option>
+                </select>
+              </label>
+            ) : null}
+
+            <label className="grid gap-1 text-sm font-medium text-[#334155] xl:col-span-7">
+              Observacao
+              <input
+                value={recorrenciaForm.observacao}
+                onChange={(event) =>
+                  atualizarRecorrenciaCampo("observacao", event.target.value)
+                }
+                placeholder="Opcional"
+                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+              />
+            </label>
+
+            <button
+              type="submit"
+              className="h-10 rounded-md bg-[#16a34a] px-4 text-sm font-semibold text-white transition hover:bg-[#15803d]"
+            >
+              Salvar
+            </button>
+          </form>
+
+          <div className="mt-4 divide-y divide-[#eef2f7] rounded-md border border-[#e2e8f0]">
+            {recorrencias.length === 0 ? (
+              <p className="px-4 py-5 text-sm text-[#64748b]">
+                Nenhuma recorrencia cadastrada.
+              </p>
+            ) : (
+              recorrencias.map((recorrencia) => (
+                <div
+                  key={recorrencia.id}
+                  className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">
+                        {recorrencia.descricao || "(sem descricao)"}
+                      </p>
+                      <span
+                        className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                          recorrencia.ativo
+                            ? "bg-[#dcfce7] text-[#166534]"
+                            : "bg-[#e2e8f0] text-[#475569]"
+                        }`}
+                      >
+                        {recorrencia.ativo ? "Ativa" : "Pausada"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-[#64748b]">
+                      Dia {recorrencia.dia} - {recorrencia.categoria || "Sem categoria"} -{" "}
+                      {formatCurrency(lerValor(recorrencia.valor))}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => alternarRecorrencia(recorrencia.id)}
+                      className="h-9 rounded-md border border-[#cbd5e1] px-3 text-xs font-semibold text-[#334155] transition hover:border-[#64748b]"
+                    >
+                      {recorrencia.ativo ? "Pausar" : "Ativar"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removerRecorrencia(recorrencia.id)}
+                      className="h-9 rounded-md border border-[#fecaca] px-3 text-xs font-semibold text-[#b91c1c] transition hover:border-[#ef4444]"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
         <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
           <div className="space-y-5">
+            {mostrarReceitas ? <ListaReceitas receitas={receitasMes} /> : null}
+
             {mostrarPendentes ? (
               <ListaContas
                 titulo="Contas a pagar"
@@ -757,6 +1247,127 @@ export default function ResumoMesPage() {
           </div>
 
           <aside className="space-y-5">
+            <section className="rounded-lg border border-[#d8dee8] bg-white p-4">
+              <h2 className="text-base font-semibold">Fechamento do mes</h2>
+              <p className="mt-1 text-sm text-[#64748b]">
+                Status atual: {fechamentoAtual.status}
+              </p>
+
+              <div className="mt-4 grid grid-cols-3 gap-2 rounded-md border border-[#cbd5e1] bg-[#f8fafc] p-1">
+                {[
+                  { value: "aberto", label: "Aberto" },
+                  { value: "revisado", label: "Revisado" },
+                  { value: "fechado", label: "Fechado" },
+                ].map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() =>
+                      alterarFechamento(item.value as StatusFechamentoMes)
+                    }
+                    className={`h-9 rounded-md px-2 text-xs font-semibold transition ${
+                      fechamentoAtual.status === item.value
+                        ? "bg-white text-[#111827] shadow-sm"
+                        : "text-[#64748b] hover:text-[#111827]"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {fechamentoAtual.atualizadoEm ? (
+                <p className="mt-3 text-xs text-[#64748b]">
+                  Atualizado em {formatDate(fechamentoAtual.atualizadoEm)}
+                </p>
+              ) : null}
+            </section>
+
+            <section className="rounded-lg border border-[#d8dee8] bg-white p-4">
+              <h2 className="text-base font-semibold">Metas por categoria</h2>
+              <p className="mt-1 text-sm text-[#64748b]">
+                Acompanhe limites mensais para as despesas.
+              </p>
+
+              <form onSubmit={salvarMetaCategoria} className="mt-4 grid gap-3">
+                <label className="grid gap-1 text-sm font-medium text-[#334155]">
+                  Categoria
+                  <input
+                    list="categorias-despesa-resumo"
+                    value={metaForm.categoria}
+                    onChange={(event) =>
+                      setMetaForm((atual) => ({
+                        ...atual,
+                        categoria: event.target.value,
+                      }))
+                    }
+                    className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm font-medium text-[#334155]">
+                  Limite
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={metaForm.limite}
+                    onChange={(event) =>
+                      setMetaForm((atual) => ({
+                        ...atual,
+                        limite: event.target.value,
+                      }))
+                    }
+                    className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                  />
+                </label>
+
+                <button
+                  type="submit"
+                  className="h-10 rounded-md bg-[#16a34a] px-4 text-sm font-semibold text-white transition hover:bg-[#15803d]"
+                >
+                  Salvar meta
+                </button>
+              </form>
+
+              <div className="mt-4 space-y-4">
+                {metasComUso.length === 0 ? (
+                  <p className="text-sm text-[#64748b]">Nenhuma meta cadastrada.</p>
+                ) : (
+                  metasComUso.map((meta) => (
+                    <div key={meta.id}>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="truncate text-sm font-semibold">{meta.categoria}</p>
+                        <button
+                          type="button"
+                          onClick={() => removerMeta(meta.id)}
+                          className="shrink-0 text-xs font-semibold text-[#b91c1c]"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-3 text-xs">
+                        <span className={meta.excedeu ? "text-[#b91c1c]" : "text-[#64748b]"}>
+                          {formatCurrency(meta.gasto)} de {formatCurrency(meta.limite)}
+                        </span>
+                        <span className={meta.excedeu ? "font-semibold text-[#b91c1c]" : "text-[#64748b]"}>
+                          {Math.round(meta.percentual)}%
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 rounded-full bg-[#e2e8f0]">
+                        <div
+                          className={`h-2 rounded-full ${
+                            meta.excedeu ? "bg-[#ef4444]" : "bg-[#16a34a]"
+                          }`}
+                          style={{ width: `${meta.percentual}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
             <section className="rounded-lg border border-[#d8dee8] bg-white p-4">
               <h2 className="text-base font-semibold">Gastos por pagamento</h2>
               <p className="mt-1 text-sm text-[#64748b]">
@@ -796,6 +1407,10 @@ export default function ResumoMesPage() {
 
               <dl className="mt-4 grid gap-3 text-sm">
                 <div className="flex items-center justify-between gap-4">
+                  <dt className="text-[#64748b]">Receitas</dt>
+                  <dd className="font-semibold text-[#15803d]">{receitasMes.length}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-4">
                   <dt className="text-[#64748b]">Contas do mes</dt>
                   <dd className="font-semibold">{contasMes.length}</dd>
                 </div>
@@ -806,6 +1421,12 @@ export default function ResumoMesPage() {
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-[#64748b]">Pagas</dt>
                   <dd className="font-semibold text-[#15803d]">{contasPagas.length}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <dt className="text-[#64748b]">Com comprovante</dt>
+                  <dd className="font-semibold">
+                    {totais.comprovantes}/{contasMes.length}
+                  </dd>
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-[#64748b]">Periodo</dt>
@@ -821,6 +1442,11 @@ export default function ResumoMesPage() {
 
       <datalist id="categorias-despesa-resumo">
         {categoriasDespesa.map((categoria) => (
+          <option key={categoria} value={categoria} />
+        ))}
+      </datalist>
+      <datalist id="categorias-receita-resumo">
+        {categoriasReceita.map((categoria) => (
           <option key={categoria} value={categoria} />
         ))}
       </datalist>

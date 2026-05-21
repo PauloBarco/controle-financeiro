@@ -3,79 +3,28 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
+import BackupLancamentos from "@/components/BackupLancamentos";
 import { formatCurrency, formatDate, formatDateInput, getCurrentMonthRange } from "@/lib/format";
+import {
+  categoriasDespesa,
+  categoriasReceita,
+  contasSugeridas,
+  criarId,
+  formasPagamento,
+  lerValor,
+} from "@/lib/lancamentos";
+import {
+  lerLancamentosSalvos,
+  salvarLancamentos,
+} from "@/lib/storage-lancamentos";
+import type {
+  CampoLancamento,
+  LancamentoPlanilha,
+  StatusLancamento,
+  TipoLancamento,
+} from "@/lib/lancamentos";
 
-type TipoLancamento = "receita" | "despesa";
-type StatusLancamento = "pago" | "pendente";
 type FiltroTipo = "todos" | TipoLancamento;
-
-type Comprovante = {
-  nome: string;
-  tipo: string;
-  dataUrl: string;
-};
-
-type LancamentoPlanilha = {
-  id: string;
-  data: string;
-  tipo: TipoLancamento;
-  descricao: string;
-  categoria: string;
-  conta: string;
-  formaPagamento: string;
-  valor: string;
-  status: StatusLancamento;
-  observacao: string;
-  comprovante?: Comprovante;
-};
-
-type CampoLancamento = keyof LancamentoPlanilha;
-
-const STORAGE_KEY = "controle-financeiro-domestico-v1";
-
-const categoriasDespesa = [
-  "Mercado",
-  "Moradia",
-  "Transporte",
-  "Saude",
-  "Educacao",
-  "Lazer",
-  "Cartao",
-  "Outros",
-];
-
-const categoriasReceita = [
-  "Salario",
-  "Freelance",
-  "Rendimento",
-  "Reembolso",
-  "Outros",
-];
-
-const contasSugeridas = [
-  "Conta corrente",
-  "Cartao de credito",
-  "Dinheiro",
-  "Pix",
-  "Poupanca",
-];
-
-const formasPagamento = [
-  "Pix",
-  "Cartao de debito",
-  "Cartao de credito",
-  "Dinheiro",
-  "Boleto",
-  "Transferencia",
-];
-
-function criarId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
 
 function criarLinhaVazia(): LancamentoPlanilha {
   return {
@@ -90,57 +39,6 @@ function criarLinhaVazia(): LancamentoPlanilha {
     status: "pago",
     observacao: "",
   };
-}
-
-function inferirFormaPagamento(conta?: string) {
-  const texto = (conta || "").toLowerCase();
-
-  if (texto.includes("credito")) return "Cartao de credito";
-  if (texto.includes("debito")) return "Cartao de debito";
-  if (texto.includes("pix")) return "Pix";
-  if (texto.includes("dinheiro")) return "Dinheiro";
-
-  return "";
-}
-
-function normalizarComprovante(comprovante: unknown): Comprovante | undefined {
-  if (!comprovante || typeof comprovante !== "object") return undefined;
-
-  const item = comprovante as Partial<Comprovante>;
-  const dataUrl = String(item.dataUrl || "");
-
-  if (!dataUrl) return undefined;
-
-  return {
-    nome: String(item.nome || "comprovante"),
-    tipo: String(item.tipo || ""),
-    dataUrl,
-  };
-}
-
-function normalizarLancamento(item: Partial<LancamentoPlanilha>): LancamentoPlanilha {
-  return {
-    id: item.id || criarId(),
-    data: item.data || formatDateInput(new Date()),
-    tipo: item.tipo === "receita" ? "receita" : "despesa",
-    descricao: item.descricao || "",
-    categoria: item.categoria || "",
-    conta: item.conta || "",
-    formaPagamento: item.formaPagamento || inferirFormaPagamento(item.conta),
-    valor:
-      item.valor === undefined || item.valor === null
-        ? ""
-        : String(item.valor).replace(",", "."),
-    status: item.status === "pendente" ? "pendente" : "pago",
-    observacao: item.observacao || "",
-    comprovante: normalizarComprovante(item.comprovante),
-  };
-}
-
-function lerValor(valor: string) {
-  const numero = Number(valor.replace(",", "."));
-
-  return Number.isFinite(numero) ? numero : 0;
 }
 
 function calcularTotais(lancamentos: LancamentoPlanilha[]) {
@@ -232,20 +130,7 @@ export default function Home() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      const salvo = window.localStorage.getItem(STORAGE_KEY);
-
-      if (salvo) {
-        try {
-          const dados = JSON.parse(salvo);
-
-          if (Array.isArray(dados)) {
-            setLancamentos(dados.map(normalizarLancamento));
-          }
-        } catch (error) {
-          console.error("Erro ao ler planilha local:", error);
-        }
-      }
-
+      setLancamentos(lerLancamentosSalvos(window.localStorage));
       setCarregado(true);
     }, 0);
 
@@ -255,7 +140,7 @@ export default function Home() {
   useEffect(() => {
     if (!carregado) return;
 
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lancamentos));
+    salvarLancamentos(window.localStorage, lancamentos);
   }, [carregado, lancamentos]);
 
   const lancamentosFiltrados = useMemo(() => {
@@ -362,12 +247,22 @@ export default function Home() {
     setLancamentos([]);
   }
 
+  function importarBackup(lancamentosImportados: LancamentoPlanilha[]) {
+    setLancamentos(lancamentosImportados);
+    salvarLancamentos(window.localStorage, lancamentosImportados);
+    setCarregado(true);
+  }
+
   return (
     <AppShell
       title="Planilha domestica"
       subtitle="Controle simples para receitas e despesas da casa"
       action={
         <div className="flex flex-wrap gap-2">
+          <BackupLancamentos
+            lancamentos={lancamentos}
+            onImportar={importarBackup}
+          />
           <Link
             href="/resumo-mes"
             className="inline-flex h-10 items-center rounded-md bg-[#2563eb] px-4 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]"

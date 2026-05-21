@@ -9,8 +9,13 @@ App domestico para substituir uma planilha simples de controle financeiro.
 - Resumo automatico de receitas, despesas, saldo e valores pendentes.
 - Filtros por periodo, tipo e busca textual.
 - Resumo de despesas por categoria.
-- Dados salvos no navegador, sem usuario e senha.
+- Central do mes com receitas, contas a pagar, contas pagas e saldo.
+- Cadastro de contas recorrentes e geracao mensal.
+- Fechamento do mes com status aberto, revisado ou fechado.
+- Metas de despesas por categoria.
+- Dados salvos no navegador, com backup/importacao JSON.
 - Exportacao CSV compativel com Excel.
+- Login e sincronizacao Supabase preparados na rota `/login`.
 
 ## Desenvolvimento
 
