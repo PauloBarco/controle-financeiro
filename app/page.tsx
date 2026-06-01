@@ -2,9 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { Plus, Download, Trash2 } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import BackupLancamentos from "@/components/BackupLancamentos";
+import { PaginationControls } from "@/components/PaginationControls";
+import { SaldoCard } from "@/components/SaldoCard";
+import { ContasDestaque } from "@/components/ContasDestaque";
 import { formatCurrency, formatDate, formatDateInput, getCurrentMonthRange } from "@/lib/format";
+import { usePagination } from "@/lib/usePagination";
+import { notificar } from "@/lib/notificacoes";
 import {
   categoriasDespesa,
   categoriasReceita,
@@ -17,6 +23,8 @@ import {
   lerLancamentosSalvos,
   salvarLancamentos,
 } from "@/lib/storage-lancamentos";
+import { agendarSincronizacao } from "@/lib/auto-sync";
+import { agendarBackupAutomatico } from "@/lib/automatic-backup";
 import type {
   CampoLancamento,
   LancamentoPlanilha,
@@ -141,6 +149,10 @@ export default function Home() {
     if (!carregado) return;
 
     salvarLancamentos(window.localStorage, lancamentos);
+    // Sincronizar automaticamente após alterações
+    agendarSincronizacao(window.localStorage);
+    // Fazer backup automático
+    agendarBackupAutomatico(window.localStorage);
   }, [carregado, lancamentos]);
 
   const lancamentosFiltrados = useMemo(() => {
@@ -174,8 +186,15 @@ export default function Home() {
   const despesasPorCategoria = agruparDespesasPorCategoria(lancamentosFiltrados);
   const maiorDespesa = despesasPorCategoria[0]?.total || 0;
 
+  // Usar hook de paginação (50 registros por página)
+  const paginacao = usePagination({
+    items: lancamentosFiltrados,
+    itemsPerPage: 50,
+  });
+
   function adicionarLinha() {
     setLancamentos((atuais) => [criarLinhaVazia(), ...atuais]);
+    notificar.info("Nova linha adicionada");
   }
 
   function duplicarLinha(lancamento: LancamentoPlanilha) {
@@ -187,12 +206,14 @@ export default function Home() {
       },
       ...atuais,
     ]);
+    notificar.sucesso("Lançamento duplicado");
   }
 
   function removerLinha(id: string) {
     if (!confirm("Remover este lancamento?")) return;
 
     setLancamentos((atuais) => atuais.filter((lancamento) => lancamento.id !== id));
+    notificar.sucesso("Lançamento removido");
   }
 
   function atualizarLinha(
@@ -225,6 +246,7 @@ export default function Home() {
     setDataFim(rangeInicial.end);
     setFiltroTipo("todos");
     setBusca("");
+    notificar.info("Filtros limpos");
   }
 
   function exportarCsv() {
@@ -239,23 +261,26 @@ export default function Home() {
     link.download = `controle-financeiro-${dataInicio || "inicio"}-${dataFim || "fim"}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+    notificar.sucesso("CSV exportado com sucesso");
   }
 
   function limparPlanilha() {
     if (!confirm("Apagar todos os lancamentos desta planilha?")) return;
 
     setLancamentos([]);
+    notificar.sucesso("Planilha limpa");
   }
 
   function importarBackup(lancamentosImportados: LancamentoPlanilha[]) {
     setLancamentos(lancamentosImportados);
     salvarLancamentos(window.localStorage, lancamentosImportados);
     setCarregado(true);
+    notificar.sucesso(`${lancamentosImportados.length} lançamentos importados`);
   }
 
   return (
     <AppShell
-      title="Planilha domestica"
+      title="Planilha Doméstica"
       subtitle="Controle simples para receitas e despesas da casa"
       action={
         <div className="flex flex-wrap gap-2">
@@ -264,32 +289,57 @@ export default function Home() {
             onImportar={importarBackup}
           />
           <Link
-            href="/resumo-mes"
-            className="inline-flex h-10 items-center rounded-md bg-[#2563eb] px-4 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]"
+            href="/dashboard"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-purple-700 dark:to-purple-800"
           >
-            Ver resumo do mes
+            📊 Dashboard
+          </Link>
+          <Link
+            href="/resumo-mes"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-blue-700 dark:to-blue-800"
+          >
+            📅 Resumo
           </Link>
           <button
             type="button"
             onClick={adicionarLinha}
-            className="inline-flex h-10 items-center rounded-md bg-[#16a34a] px-4 text-sm font-semibold text-white transition hover:bg-[#15803d]"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-green-600 to-green-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-green-700 dark:to-green-800"
           >
+            <Plus className="w-4 h-4" />
             Nova linha
           </button>
         </div>
       }
     >
-      <div className="space-y-5">
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <ResumoCard titulo="Receitas" valor={totais.receitas} tom="receita" />
-          <ResumoCard titulo="Despesas" valor={totais.despesas} tom="despesa" />
-          <ResumoCard titulo="Saldo" valor={totais.saldo} tom="saldo" />
-          <ResumoCard titulo="A pagar" valor={totais.pendente} tom="pendente" />
+      <div className="space-y-6">
+        {/* Cards de saldo (modo bancário moderno) */}
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <SaldoCard 
+            titulo="Receitas" 
+            valor={totais.receitas} 
+            tipo="receita"
+          />
+          <SaldoCard 
+            titulo="Despesas" 
+            valor={totais.despesas} 
+            tipo="despesa"
+          />
+          <SaldoCard 
+            titulo="Saldo" 
+            valor={totais.saldo} 
+            tipo="saldo"
+          />
+          <SaldoCard 
+            titulo="A pagar" 
+            valor={totais.pendente} 
+            tipo="pendente"
+          />
         </section>
 
-        <section className="rounded-lg border border-[#d8dee8] bg-white p-4">
+        {/* Filtros */}
+        <section className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 p-6 backdrop-blur-sm">
           <div className="grid gap-3 lg:grid-cols-[1fr_1fr_0.9fr_1.2fr_auto_auto] lg:items-end">
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className="grid gap-1 text-sm font-medium">
               Data inicial
               <input
                 type="date"
@@ -335,7 +385,7 @@ export default function Home() {
             <button
               type="button"
               onClick={limparFiltros}
-              className="h-10 rounded-md border border-[#cbd5e1] px-3 text-sm font-semibold text-[#334155] transition hover:border-[#64748b]"
+              className="h-10 rounded-lg border border-gray-300 dark:border-gray-700 px-3 text-sm font-semibold text-gray-700 dark:text-gray-300 transition hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               Limpar
             </button>
@@ -343,9 +393,10 @@ export default function Home() {
             <button
               type="button"
               onClick={exportarCsv}
-              className="h-10 rounded-md bg-[#2563eb] px-3 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-blue-700 dark:to-blue-800"
             >
-              Exportar CSV
+              <Download className="w-4 h-4" />
+              CSV
             </button>
           </div>
         </section>
@@ -356,7 +407,7 @@ export default function Home() {
               <div>
                 <h2 className="text-base font-semibold">Lancamentos</h2>
                 <p className="mt-1 text-sm text-[#64748b]">
-                  {carregado ? `${lancamentosFiltrados.length} linhas no periodo` : "Carregando..."}
+                  {carregado ? `${lancamentosFiltrados.length} linhas no periodo (página ${paginacao.currentPage}/${paginacao.totalPages})` : "Carregando..."}
                 </p>
               </div>
 
@@ -378,6 +429,25 @@ export default function Home() {
                 </button>
               </div>
             </div>
+
+            {/* Controle de paginação superior */}
+            {paginacao.totalItems > paginacao.itemsPerPage && (
+              <div className="border-b border-[#e2e8f0] px-4 py-3">
+                <PaginationControls
+                  currentPage={paginacao.currentPage}
+                  totalPages={paginacao.totalPages}
+                  totalItems={paginacao.totalItems}
+                  itemsPerPage={paginacao.itemsPerPage}
+                  canGoNext={paginacao.canGoNext}
+                  canGoPrevious={paginacao.canGoPrevious}
+                  onGoToPage={paginacao.goToPage}
+                  onGoToNext={paginacao.goToNextPage}
+                  onGoToPrevious={paginacao.goToPreviousPage}
+                  onGoToFirst={paginacao.goToFirstPage}
+                  onGoToLast={paginacao.goToLastPage}
+                />
+              </div>
+            )}
 
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1280px] border-collapse text-sm">
@@ -423,7 +493,7 @@ export default function Home() {
                       </td>
                     </tr>
                   ) : (
-                    lancamentosFiltrados.map((lancamento) => (
+                    paginacao.paginatedItems.map((lancamento) => (
                       <tr key={lancamento.id} className="border-b border-[#eef2f7] last:border-0">
                         <td className="px-3 py-2 align-top">
                           <input
@@ -570,6 +640,25 @@ export default function Home() {
                 </tbody>
               </table>
             </div>
+
+            {/* Controle de paginação inferior */}
+            {paginacao.totalItems > paginacao.itemsPerPage && (
+              <div className="border-t border-[#e2e8f0] px-4 py-3">
+                <PaginationControls
+                  currentPage={paginacao.currentPage}
+                  totalPages={paginacao.totalPages}
+                  totalItems={paginacao.totalItems}
+                  itemsPerPage={paginacao.itemsPerPage}
+                  canGoNext={paginacao.canGoNext}
+                  canGoPrevious={paginacao.canGoPrevious}
+                  onGoToPage={paginacao.goToPage}
+                  onGoToNext={paginacao.goToNextPage}
+                  onGoToPrevious={paginacao.goToPreviousPage}
+                  onGoToFirst={paginacao.goToFirstPage}
+                  onGoToLast={paginacao.goToLastPage}
+                />
+              </div>
+            )}
           </div>
 
           <aside className="space-y-5">

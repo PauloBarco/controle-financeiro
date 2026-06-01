@@ -33,6 +33,7 @@ import {
   salvarMetas,
   salvarRecorrencias,
 } from "@/lib/planejamento";
+import { agendarSincronizacao } from "@/lib/auto-sync";
 import type {
   Comprovante,
   LancamentoPlanilha,
@@ -466,21 +467,25 @@ export default function ResumoMesPage() {
   function persistir(next: LancamentoPlanilha[]) {
     setLancamentos(next);
     salvarLancamentos(window.localStorage, next);
+    agendarSincronizacao(window.localStorage);
   }
 
   function persistirRecorrencias(next: LancamentoRecorrente[]) {
     setRecorrencias(next);
     salvarRecorrencias(window.localStorage, next);
+    agendarSincronizacao(window.localStorage);
   }
 
   function persistirMetas(next: MetaCategoria[]) {
     setMetas(next);
     salvarMetas(window.localStorage, next);
+    agendarSincronizacao(window.localStorage);
   }
 
   function persistirFechamentos(next: Record<string, FechamentoMes>) {
     setFechamentos(next);
     salvarFechamentos(window.localStorage, next);
+    agendarSincronizacao(window.localStorage);
   }
 
   const lancamentosMes = useMemo(() => {

@@ -30,6 +30,36 @@ type Database = {
         };
         Relationships: [];
       };
+      controle_financeiro_backups: {
+        Row: {
+          id: string;
+          user_id: string;
+          backup_date: string;
+          lancamentos_count: number | null;
+          backup_hash: string | null;
+          dados: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          backup_date?: string;
+          lancamentos_count?: number | null;
+          backup_hash?: string | null;
+          dados?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          backup_date?: string;
+          lancamentos_count?: number | null;
+          backup_hash?: string | null;
+          dados?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
