@@ -19,11 +19,34 @@ App domestico para substituir uma planilha simples de controle financeiro.
 
 ## Desenvolvimento
 
+Crie um arquivo `.env` local com base em `.env.example`:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+```
+
 ```bash
 npm run dev
 ```
 
 Abra `http://localhost:3000`.
+
+## Deploy na Vercel
+
+Este projeto e um app Next.js e nao precisa de `vercel.json` para deploy basico.
+
+1. Suba o repositorio para GitHub, GitLab ou Bitbucket.
+2. Na Vercel, escolha **Add New > Project** e importe o repositorio.
+3. Mantenha o preset **Next.js**. A Vercel deve detectar:
+   - Install Command: `npm install`
+   - Build Command: `npm run build`
+   - Output Directory: padrao do Next.js
+4. Em **Project Settings > Environment Variables**, cadastre em Production e Preview:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+5. No Supabase, aplique a migration em `supabase/migrations/20260521000100_controle_financeiro_dados.sql`.
+6. Se o Supabase exigir confirmacao por email, configure as URLs do Auth para o dominio da Vercel, por exemplo `https://seu-projeto.vercel.app/login`.
 
 ## Verificacao
 

@@ -54,6 +54,7 @@ type NovoLancamentoForm = {
   descricao: string;
   categoria: string;
   conta: string;
+  titularConta: string;
   formaPagamento: string;
   valor: string;
   status: StatusLancamento;
@@ -65,7 +66,6 @@ type RecorrenciaForm = {
   dia: string;
   descricao: string;
   categoria: string;
-  conta: string;
   formaPagamento: string;
   valor: string;
   status: StatusLancamento;
@@ -94,6 +94,7 @@ function criarFormularioInicial(): NovoLancamentoForm {
     descricao: "",
     categoria: "",
     conta: "",
+    titularConta: "",
     formaPagamento: "",
     valor: "",
     status: "pendente",
@@ -107,7 +108,6 @@ function criarRecorrenciaInicial(): RecorrenciaForm {
     dia: "5",
     descricao: "",
     categoria: "",
-    conta: "",
     formaPagamento: "",
     valor: "",
     status: "pendente",
@@ -212,7 +212,6 @@ function ContaMesItem({
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#64748b]">
             <span>{formatDate(lancamento.data)}</span>
             <span>{lancamento.categoria || "Sem categoria"}</span>
-            <span>{lancamento.conta || "Sem conta"}</span>
             <span>{lancamento.formaPagamento || "Sem forma de pagamento"}</span>
           </div>
 
@@ -326,7 +325,10 @@ function ReceitaMesItem({ lancamento }: ReceitaMesItemProps) {
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#64748b]">
             <span>{formatDate(lancamento.data)}</span>
             <span>{lancamento.categoria || "Sem categoria"}</span>
-            <span>{lancamento.conta || "Sem conta"}</span>
+            {lancamento.conta ? <span>{lancamento.conta}</span> : null}
+            {lancamento.titularConta ? (
+              <span>Conta de {lancamento.titularConta}</span>
+            ) : null}
             <span>{lancamento.formaPagamento || "Sem forma de recebimento"}</span>
           </div>
 
@@ -591,6 +593,8 @@ export default function ResumoMesPage() {
         ...atual,
         tipo,
         categoria: "",
+        conta: tipo === "receita" ? atual.conta : "",
+        titularConta: tipo === "receita" ? atual.titularConta : "",
         status: tipo === "receita" ? "pago" : "pendente",
       }));
       return;
@@ -635,7 +639,7 @@ export default function ResumoMesPage() {
       dia: recorrenciaForm.dia,
       descricao: recorrenciaForm.descricao.trim(),
       categoria: recorrenciaForm.categoria.trim(),
-      conta: recorrenciaForm.conta.trim(),
+      conta: "",
       formaPagamento: recorrenciaForm.formaPagamento,
       valor: recorrenciaForm.valor.replace(",", "."),
       status:
@@ -738,13 +742,23 @@ export default function ResumoMesPage() {
       return;
     }
 
+    if (
+      form.tipo === "receita" &&
+      (!form.conta.trim() || !form.titularConta.trim())
+    ) {
+      alert("Informe a conta e de quem e a conta da receita.");
+      return;
+    }
+
     const novoLancamento: LancamentoPlanilha = {
       id: criarId(),
       data: form.data || formatDateInput(new Date()),
       tipo: form.tipo,
       descricao: form.descricao.trim(),
       categoria: form.categoria.trim(),
-      conta: form.conta.trim(),
+      conta: form.tipo === "receita" ? form.conta.trim() : "",
+      titularConta:
+        form.tipo === "receita" ? form.titularConta.trim() : "",
       formaPagamento: form.formaPagamento,
       valor: form.valor.replace(",", "."),
       status: form.tipo === "receita" ? "pago" : form.status,
@@ -867,33 +881,33 @@ export default function ResumoMesPage() {
 
           <form
             onSubmit={adicionarLancamento}
-            className="grid gap-3 md:grid-cols-2 xl:grid-cols-8 xl:items-end"
+            className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end"
           >
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Tipo
               <select
                 value={form.tipo}
                 onChange={(event) =>
                   atualizarCampo("tipo", event.target.value as TipoLancamento)
                 }
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               >
                 <option value="despesa">Despesa</option>
                 <option value="receita">Receita</option>
               </select>
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Data
               <input
                 type="date"
                 value={form.data}
                 onChange={(event) => atualizarCampo("data", event.target.value)}
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155] xl:col-span-2">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Lancamento
               <input
                 value={form.descricao}
@@ -901,11 +915,11 @@ export default function ResumoMesPage() {
                 placeholder={
                   form.tipo === "receita" ? "Ex.: salario" : "Ex.: compra do mercado"
                 }
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Categoria
               <input
                 list={
@@ -916,27 +930,43 @@ export default function ResumoMesPage() {
                 value={form.categoria}
                 onChange={(event) => atualizarCampo("categoria", event.target.value)}
                 placeholder={form.tipo === "receita" ? "Ex.: Salario" : "Ex.: Mercado"}
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
-              Conta
-              <input
-                list="contas-sugeridas-resumo"
-                value={form.conta}
-                onChange={(event) => atualizarCampo("conta", event.target.value)}
-                placeholder="Ex.: Banco"
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
-              />
-            </label>
+            {form.tipo === "receita" ? (
+              <>
+                <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
+                  Conta
+                  <input
+                    list="contas-sugeridas-resumo"
+                    value={form.conta}
+                    onChange={(event) => atualizarCampo("conta", event.target.value)}
+                    placeholder="Ex.: Conta corrente"
+                    className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                  />
+                </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+                <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
+                  De quem e a conta
+                  <input
+                    value={form.titularConta}
+                    onChange={(event) =>
+                      atualizarCampo("titularConta", event.target.value)
+                    }
+                    placeholder="Ex.: Paulo"
+                    className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                  />
+                </label>
+              </>
+            ) : null}
+
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Forma
               <select
                 value={form.formaPagamento}
                 onChange={(event) => atualizarCampo("formaPagamento", event.target.value)}
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               >
                 <option value="">Selecione</option>
                 {formasPagamento.map((forma) => (
@@ -947,7 +977,7 @@ export default function ResumoMesPage() {
               </select>
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Valor
               <input
                 type="number"
@@ -956,19 +986,19 @@ export default function ResumoMesPage() {
                 value={form.valor}
                 onChange={(event) => atualizarCampo("valor", event.target.value)}
                 placeholder="0,00"
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
 
             {form.tipo === "despesa" ? (
-              <label className="grid gap-1 text-sm font-medium text-[#334155]">
+              <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
                 Status
                 <select
                   value={form.status}
                   onChange={(event) =>
                     atualizarCampo("status", event.target.value as StatusLancamento)
                   }
-                  className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                  className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
                 >
                   <option value="pendente">Pendente</option>
                   <option value="pago">Pago</option>
@@ -976,13 +1006,13 @@ export default function ResumoMesPage() {
               </label>
             ) : null}
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155] xl:col-span-7">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155] xl:col-span-3">
               Observacao
               <input
                 value={form.observacao}
                 onChange={(event) => atualizarCampo("observacao", event.target.value)}
                 placeholder="Opcional"
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
 
@@ -1015,9 +1045,9 @@ export default function ResumoMesPage() {
 
           <form
             onSubmit={adicionarRecorrencia}
-            className="grid gap-3 md:grid-cols-2 xl:grid-cols-8 xl:items-end"
+            className="grid gap-3 md:grid-cols-2 xl:grid-cols-[8rem_7.5rem_minmax(13rem,1.8fr)_minmax(9rem,1fr)_minmax(9rem,1fr)_minmax(7.5rem,0.8fr)] xl:items-end"
           >
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Tipo
               <select
                 value={recorrenciaForm.tipo}
@@ -1027,14 +1057,14 @@ export default function ResumoMesPage() {
                     event.target.value as TipoLancamento,
                   )
                 }
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               >
                 <option value="despesa">Despesa</option>
                 <option value="receita">Receita</option>
               </select>
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Dia
               <input
                 type="number"
@@ -1044,11 +1074,11 @@ export default function ResumoMesPage() {
                 onChange={(event) =>
                   atualizarRecorrenciaCampo("dia", event.target.value)
                 }
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155] xl:col-span-2">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Descricao
               <input
                 value={recorrenciaForm.descricao}
@@ -1060,11 +1090,11 @@ export default function ResumoMesPage() {
                     ? "Ex.: salario"
                     : "Ex.: internet"
                 }
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Categoria
               <input
                 list={
@@ -1076,30 +1106,18 @@ export default function ResumoMesPage() {
                 onChange={(event) =>
                   atualizarRecorrenciaCampo("categoria", event.target.value)
                 }
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
-              Conta
-              <input
-                list="contas-sugeridas-resumo"
-                value={recorrenciaForm.conta}
-                onChange={(event) =>
-                  atualizarRecorrenciaCampo("conta", event.target.value)
-                }
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
-              />
-            </label>
-
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Forma
               <select
                 value={recorrenciaForm.formaPagamento}
                 onChange={(event) =>
                   atualizarRecorrenciaCampo("formaPagamento", event.target.value)
                 }
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               >
                 <option value="">Selecione</option>
                 {formasPagamento.map((forma) => (
@@ -1110,7 +1128,7 @@ export default function ResumoMesPage() {
               </select>
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
               Valor
               <input
                 type="number"
@@ -1120,12 +1138,12 @@ export default function ResumoMesPage() {
                 onChange={(event) =>
                   atualizarRecorrenciaCampo("valor", event.target.value)
                 }
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
 
             {recorrenciaForm.tipo === "despesa" ? (
-              <label className="grid gap-1 text-sm font-medium text-[#334155]">
+              <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
                 Status
                 <select
                   value={recorrenciaForm.status}
@@ -1135,7 +1153,7 @@ export default function ResumoMesPage() {
                       event.target.value as StatusLancamento,
                     )
                   }
-                  className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                  className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
                 >
                   <option value="pendente">Pendente</option>
                   <option value="pago">Pago</option>
@@ -1143,7 +1161,7 @@ export default function ResumoMesPage() {
               </label>
             ) : null}
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155] xl:col-span-7">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155] xl:col-span-4">
               Observacao
               <input
                 value={recorrenciaForm.observacao}
@@ -1151,7 +1169,7 @@ export default function ResumoMesPage() {
                   atualizarRecorrenciaCampo("observacao", event.target.value)
                 }
                 placeholder="Opcional"
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />
             </label>
 

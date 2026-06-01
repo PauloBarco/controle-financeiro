@@ -16,6 +16,7 @@ export type LancamentoPlanilha = {
   descricao: string;
   categoria: string;
   conta: string;
+  titularConta?: string;
   formaPagamento: string;
   valor: string;
   status: StatusLancamento;
@@ -51,10 +52,12 @@ export const categoriasReceita = [
 
 export const contasSugeridas = [
   "Conta corrente",
+  "Poupanca",
+  "Vale alimentacao",
+  "Vale refeicao",
   "Cartao de credito",
   "Dinheiro",
   "Pix",
-  "Poupanca",
 ];
 
 export const formasPagamento = [
@@ -112,6 +115,7 @@ export function normalizarLancamento(
     descricao: item.descricao || "",
     categoria: item.categoria || "",
     conta: item.conta || "",
+    titularConta: item.titularConta || "",
     formaPagamento: item.formaPagamento || inferirFormaPagamento(item.conta),
     valor:
       item.valor === undefined || item.valor === null
