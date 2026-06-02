@@ -1,14 +1,10 @@
 import { salvarDadosNaNuvem, obterUsuarioAtual } from "@/lib/cloud-sync";
-import {
-  lerLancamentosSalvos,
-  salvarLancamentos,
-} from "@/lib/storage-lancamentos";
+import { lerLancamentosSalvos } from "@/lib/storage-lancamentos";
 import {
   lerFechamentosSalvos,
   lerMetasSalvas,
   lerRecorrenciasSalvas,
 } from "@/lib/planejamento";
-import type { LancamentoPlanilha } from "@/lib/lancamentos";
 
 /**
  * Sistema de sincronização automática com a nuvem (Supabase)

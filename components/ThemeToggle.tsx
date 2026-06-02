@@ -1,16 +1,34 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+const THEME_CHANGE_EVENT = "controle-financeiro:theme-change";
+
+function subscribeToThemeChanges(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+
+  window.addEventListener("storage", callback);
+  window.addEventListener(THEME_CHANGE_EVENT, callback);
+
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(THEME_CHANGE_EVENT, callback);
+  };
+}
+
+function getThemeSnapshot() {
+  if (typeof document === "undefined") return false;
+
+  return document.documentElement.classList.contains("dark");
+}
 
 export function ThemeToggle() {
-  const [mounted, setMounted] = useState(false);
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, []);
+  const isDark = useSyncExternalStore(
+    subscribeToThemeChanges,
+    getThemeSnapshot,
+    () => false,
+  );
 
   const toggleTheme = () => {
     const html = document.documentElement;
@@ -18,19 +36,13 @@ export function ThemeToggle() {
     if (html.classList.contains("dark")) {
       html.classList.remove("dark");
       localStorage.theme = "light";
-      setIsDark(false);
     } else {
       html.classList.add("dark");
       localStorage.theme = "dark";
-      setIsDark(true);
     }
-  };
 
-  if (!mounted) {
-    return (
-      <button className="h-10 w-10 rounded-lg border border-gray-300 dark:border-gray-700 animate-pulse" />
-    );
-  }
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+  };
 
   return (
     <button

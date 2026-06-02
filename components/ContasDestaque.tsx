@@ -1,6 +1,6 @@
 "use client";
 
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { Building2, CreditCard, Wallet } from "lucide-react";
 import React from "react";
 

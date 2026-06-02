@@ -62,7 +62,13 @@ export async function obterUsuarioAtual() {
   const supabase = getClientOrThrow();
   const { data, error } = await supabase.auth.getUser();
 
-  if (error) throw error;
+  if (error) {
+    if (error.message === "Auth session missing!") {
+      return null;
+    }
+
+    throw error;
+  }
 
   return data.user;
 }

@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Download, Trash2 } from "lucide-react";
+import { Plus, Download } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import BackupLancamentos from "@/components/BackupLancamentos";
 import { PaginationControls } from "@/components/PaginationControls";
 import { SaldoCard } from "@/components/SaldoCard";
-import { ContasDestaque } from "@/components/ContasDestaque";
 import { formatCurrency, formatDate, formatDateInput, getCurrentMonthRange } from "@/lib/format";
 import { usePagination } from "@/lib/usePagination";
 import { notificar } from "@/lib/notificacoes";
@@ -736,33 +735,5 @@ export default function Home() {
         ))}
       </datalist>
     </AppShell>
-  );
-}
-
-type ResumoCardProps = {
-  titulo: string;
-  valor: number;
-  tom: "receita" | "despesa" | "saldo" | "pendente";
-};
-
-function ResumoCard({ titulo, valor, tom }: ResumoCardProps) {
-  const destaque =
-    tom === "receita"
-      ? "text-[#15803d]"
-      : tom === "despesa" || tom === "pendente"
-        ? "text-[#b91c1c]"
-        : valor >= 0
-          ? "text-[#15803d]"
-          : "text-[#b91c1c]";
-
-  return (
-    <div className="rounded-lg border border-[#d8dee8] bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-normal text-[#64748b]">
-        {titulo}
-      </p>
-      <strong className={`mt-2 block text-2xl font-semibold ${destaque}`}>
-        {formatCurrency(valor)}
-      </strong>
-    </div>
   );
 }

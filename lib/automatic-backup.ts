@@ -2,11 +2,6 @@ import { getSupabaseClient } from "./supabase";
 import { obterUsuarioAtual } from "./cloud-sync";
 import type { LancamentoPlanilha } from "./lancamentos";
 
-interface BackupConfig {
-  delayMs?: number;
-  debugMode?: boolean;
-}
-
 interface BackupStatusCallback {
   (status: {
     timestamp: string;
@@ -16,7 +11,7 @@ interface BackupStatusCallback {
   }): void;
 }
 
-let backupStatusCallbacks: Set<BackupStatusCallback> = new Set();
+const backupStatusCallbacks: Set<BackupStatusCallback> = new Set();
 let ultimoBackupDiario: string | null = null;
 let ultimoBackupHash: string | null = null;
 

@@ -22,6 +22,7 @@ import type {
   DadosReceitaVsDespesa,
   ResumoDespesasPorCategoria,
 } from "@/lib/dashboard-stats";
+import type { TooltipContentProps } from "recharts";
 
 const CORES_GRAFICOS = [
   "#15803d",
@@ -35,14 +36,18 @@ const CORES_GRAFICOS = [
 ];
 
 // Custom Tooltip para mostrar valores formatados
-const CustomTooltip: FC<any> = ({ active, payload, label }) => {
+const CustomTooltip: FC<Partial<TooltipContentProps>> = ({
+  active,
+  payload,
+  label,
+}) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-md border border-[#d8dee8] bg-white p-3 shadow-lg">
         <p className="text-sm font-semibold text-[#111827]">{label}</p>
-        {payload.map((entry: any, index: number) => (
+        {payload.map((entry, index) => (
           <p key={index} style={{ color: entry.color }} className="text-sm">
-            {entry.name}: {formatCurrency(entry.value)}
+            {entry.name}: {formatCurrency(Number(entry.value) || 0)}
           </p>
         ))}
       </div>
@@ -195,7 +200,7 @@ export const GraficoDespesasPorCategoria: FC<{
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value: any) => formatCurrency(Number(value) || 0)}
+                formatter={(value) => formatCurrency(Number(value) || 0)}
               />
             </PieChart>
           </ResponsiveContainer>

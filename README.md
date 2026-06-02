@@ -34,21 +34,22 @@ Abra `http://localhost:3000`.
 
 ## Deploy na Vercel
 
-Este projeto e um app Next.js e nao precisa de `vercel.json` para deploy basico.
+Este projeto é um app Next.js e pode rodar na Vercel usando o preset Next.js.
 
-1. Suba o repositorio para GitHub, GitLab ou Bitbucket.
-2. Na Vercel, escolha **Add New > Project** e importe o repositorio.
-3. Mantenha o preset **Next.js**. A Vercel deve detectar:
+1. Suba o repositório para GitHub, GitLab ou Bitbucket.
+2. Na Vercel, escolha **Add New > Project** e importe o repositório.
+3. Mantenha o preset **Next.js**. O `vercel.json` deste projeto reforça:
    - Install Command: `npm install`
    - Build Command: `npm run build`
-   - Output Directory: padrao do Next.js
-4. Em **Project Settings > Environment Variables**, cadastre em Production e Preview:
+   - Output Directory: padrão do Next.js
+4. Cadastre as variáveis em **Project Settings > Environment Variables** para **Production** e **Preview**:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-5. No Supabase, aplique a migration em `supabase/migrations/20260521000100_controle_financeiro_dados.sql`.
-6. Se o Supabase exigir confirmacao por email, configure as URLs do Auth para o dominio da Vercel, por exemplo `https://seu-projeto.vercel.app/login`.
+5. Não coloque os valores dessas variáveis no `vercel.json`; variáveis `NEXT_PUBLIC_*` são embutidas no bundle durante `npm run build`.
+6. No Supabase, aplique as migrations em `supabase/migrations`.
+7. Se o Supabase exigir confirmação por email, configure as URLs do Auth para o domínio da Vercel, por exemplo `https://seu-projeto.vercel.app/login`.
 
-## Verificacao
+## Verificação
 
 ```bash
 npm run lint

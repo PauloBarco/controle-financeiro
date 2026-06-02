@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, BarChart3 } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import type { ReactNode } from "react";
 

@@ -1,16 +1,16 @@
 import { useState, useMemo } from "react";
 
-interface UsePaginationOptions {
-  items: any[];
+interface UsePaginationOptions<TItem> {
+  items: TItem[];
   itemsPerPage?: number;
 }
 
-interface PaginationState {
+interface PaginationState<TItem> {
   currentPage: number;
   totalPages: number;
   totalItems: number;
   itemsPerPage: number;
-  paginatedItems: any[];
+  paginatedItems: TItem[];
   goToPage: (page: number) => void;
   goToNextPage: () => void;
   goToPreviousPage: () => void;
@@ -29,10 +29,10 @@ interface PaginationState {
  *   itemsPerPage: 50
  * });
  */
-export function usePagination({
+export function usePagination<TItem>({
   items,
   itemsPerPage = 50,
-}: UsePaginationOptions): PaginationState {
+}: UsePaginationOptions<TItem>): PaginationState<TItem> {
   const [currentPage, setCurrentPage] = useState(1);
 
   const totalItems = items.length;

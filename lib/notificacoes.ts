@@ -10,6 +10,7 @@
  * notificar.aviso("Cuidado!");
  */
 
+import React from "react";
 import { toast } from "sonner";
 
 export const notificar = {
@@ -56,7 +57,8 @@ export const notificar = {
     conteudo: React.ReactNode,
     opcoes?: { duracao?: number; tipo?: "default" | "success" | "error" | "info" | "warning" }
   ) => {
-    toast.custom(conteudo, {
+    // Sonner expects a render function for `toast.custom` with signature (id) => ReactElement
+    toast.custom(() => React.createElement(React.Fragment, null, conteudo), {
       duration: opcoes?.duracao || 4000,
     });
   },

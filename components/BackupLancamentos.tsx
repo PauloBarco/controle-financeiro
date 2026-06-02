@@ -56,7 +56,7 @@ export default function BackupLancamentos({
         onClick={() => baixarBackupLancamentos(lancamentos)}
         className="h-10 rounded-md border border-[#cbd5e1] px-3 text-sm font-semibold text-[#334155] transition hover:border-[#64748b]"
       >
-        Backup JSON
+        Backup
       </button>
 
       <button
