@@ -289,20 +289,20 @@ export default function Home() {
           />
           <Link
             href="/dashboard"
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-purple-700 dark:to-purple-800"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-linear-to-r from-purple-600 to-purple-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-purple-700 dark:to-purple-800"
           >
             📊 Dashboard
           </Link>
           <Link
             href="/resumo-mes"
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-blue-700 dark:to-blue-800"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-linear-to-r from-blue-600 to-blue-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-blue-700 dark:to-blue-800"
           >
             📅 Resumo
           </Link>
           <button
             type="button"
             onClick={adicionarLinha}
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-green-600 to-green-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-green-700 dark:to-green-800"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-linear-to-r from-green-600 to-green-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-green-700 dark:to-green-800"
           >
             <Plus className="w-4 h-4" />
             Nova linha
@@ -392,7 +392,7 @@ export default function Home() {
             <button
               type="button"
               onClick={exportarCsv}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-blue-700 dark:to-blue-800"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-linear-to-r from-blue-600 to-blue-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-blue-700 dark:to-blue-800"
             >
               <Download className="w-4 h-4" />
               CSV
@@ -449,37 +449,37 @@ export default function Home() {
             )}
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1280px] border-collapse text-sm">
+              <table className="w-full min-w-7xl border-collapse text-sm">
                 <thead className="bg-[#f8fafc] text-left text-xs font-semibold uppercase tracking-normal text-[#64748b]">
                   <tr>
-                    <th className="w-[132px] border-b border-[#e2e8f0] px-3 py-3">
+                    <th className="w-33 border-b border-[#e2e8f0] px-3 py-3">
                       Data
                     </th>
-                    <th className="w-[120px] border-b border-[#e2e8f0] px-3 py-3">
+                    <th className="w-30 border-b border-[#e2e8f0] px-3 py-3">
                       Tipo
                     </th>
-                    <th className="w-[220px] border-b border-[#e2e8f0] px-3 py-3">
+                    <th className="w-55 border-b border-[#e2e8f0] px-3 py-3">
                       Descricao
                     </th>
-                    <th className="w-[160px] border-b border-[#e2e8f0] px-3 py-3">
+                    <th className="w-40 border-b border-[#e2e8f0] px-3 py-3">
                       Categoria
                     </th>
-                    <th className="w-[160px] border-b border-[#e2e8f0] px-3 py-3">
+                    <th className="w-40 border-b border-[#e2e8f0] px-3 py-3">
                       Conta
                     </th>
-                    <th className="w-[160px] border-b border-[#e2e8f0] px-3 py-3">
+                    <th className="w-40 border-b border-[#e2e8f0] px-3 py-3">
                       Pagamento
                     </th>
-                    <th className="w-[130px] border-b border-[#e2e8f0] px-3 py-3 text-right">
+                    <th className="w-32.5 border-b border-[#e2e8f0] px-3 py-3 text-right">
                       Valor
                     </th>
-                    <th className="w-[120px] border-b border-[#e2e8f0] px-3 py-3">
+                    <th className="w-30 border-b border-[#e2e8f0] px-3 py-3">
                       Status
                     </th>
-                    <th className="w-[210px] border-b border-[#e2e8f0] px-3 py-3">
+                    <th className="w-52.5 border-b border-[#e2e8f0] px-3 py-3">
                       Observacao
                     </th>
-                    <th className="w-[150px] border-b border-[#e2e8f0] px-3 py-3">
+                    <th className="w-37.5 border-b border-[#e2e8f0] px-3 py-3">
                       Acoes
                     </th>
                   </tr>

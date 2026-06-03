@@ -63,7 +63,7 @@ export function SaldoCard({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border ${cor.border} bg-gradient-to-br ${cor.bg} p-6 backdrop-blur-sm transition-all hover:shadow-lg dark:bg-gradient-to-br dark:from-gray-800/50 dark:to-gray-900/50`}
+      className={`relative overflow-hidden rounded-xl border ${cor.border} bg-linear-to-br ${cor.bg} p-6 backdrop-blur-sm transition-all hover:shadow-lg dark:bg-linear-to-br dark:from-gray-800/50 dark:to-gray-900/50`}
     >
       {/* Efeito de background animado */}
       <div className="absolute inset-0 overflow-hidden">

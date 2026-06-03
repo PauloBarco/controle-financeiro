@@ -60,7 +60,7 @@ export function ContasDestaque({ contas }: ContasDestaqueProps) {
             return (
               <div
                 key={conta.nome}
-                className={`group relative overflow-hidden rounded-lg bg-gradient-to-br ${cor.bg} p-5 text-white shadow-lg transition-all hover:shadow-xl dark:shadow-2xl`}
+                className={`group relative overflow-hidden rounded-lg bg-linear-to-br ${cor.bg} p-5 text-white shadow-lg transition-all hover:shadow-xl dark:shadow-2xl`}
               >
                 {/* Efeito background */}
                 <div className="absolute inset-0 overflow-hidden">
