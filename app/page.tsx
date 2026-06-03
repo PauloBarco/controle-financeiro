@@ -33,7 +33,18 @@ import type {
 
 type FiltroTipo = "todos" | TipoLancamento;
 
-function criarLinhaVazia(): LancamentoPlanilha {
+const filtroLabelClass =
+  "grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200";
+const filtroControlClass =
+  "h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#2563eb] [color-scheme:light]";
+const tabelaControlClass =
+  "h-9 w-full rounded-md border border-transparent bg-transparent px-2 text-slate-900 placeholder:text-slate-400 outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white [color-scheme:light]";
+const tabelaControlDireitaClass =
+  `${tabelaControlClass} text-right`;
+
+function criarLinhaVazia(
+  camposIniciais: Partial<LancamentoPlanilha> = {},
+): LancamentoPlanilha {
   return {
     id: criarId(),
     data: formatDateInput(new Date()),
@@ -45,7 +56,18 @@ function criarLinhaVazia(): LancamentoPlanilha {
     valor: "",
     status: "pago",
     observacao: "",
+    ...camposIniciais,
   };
+}
+
+function escolherDataNovaLinha(dataInicio: string, dataFim: string) {
+  const hoje = formatDateInput(new Date());
+
+  if ((!dataInicio || hoje >= dataInicio) && (!dataFim || hoje <= dataFim)) {
+    return hoje;
+  }
+
+  return dataFim || dataInicio || hoje;
 }
 
 function calcularTotais(lancamentos: LancamentoPlanilha[]) {
@@ -192,7 +214,13 @@ export default function Home() {
   });
 
   function adicionarLinha() {
-    setLancamentos((atuais) => [criarLinhaVazia(), ...atuais]);
+    const novaLinha = criarLinhaVazia({
+      data: escolherDataNovaLinha(dataInicio, dataFim),
+      tipo: filtroTipo === "todos" ? "despesa" : filtroTipo,
+    });
+
+    setLancamentos((atuais) => [novaLinha, ...atuais]);
+    paginacao.goToFirstPage();
     notificar.info("Nova linha adicionada");
   }
 
@@ -338,32 +366,32 @@ export default function Home() {
         {/* Filtros */}
         <section className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 p-6 backdrop-blur-sm">
           <div className="grid gap-3 lg:grid-cols-[1fr_1fr_0.9fr_1.2fr_auto_auto] lg:items-end">
-            <label className="grid gap-1 text-sm font-medium">
+            <label className={filtroLabelClass}>
               Data inicial
               <input
                 type="date"
                 value={dataInicio}
                 onChange={(event) => setDataInicio(event.target.value)}
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className={filtroControlClass}
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className={filtroLabelClass}>
               Data final
               <input
                 type="date"
                 value={dataFim}
                 onChange={(event) => setDataFim(event.target.value)}
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className={filtroControlClass}
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className={filtroLabelClass}>
               Tipo
               <select
                 value={filtroTipo}
                 onChange={(event) => setFiltroTipo(event.target.value as FiltroTipo)}
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className={filtroControlClass}
               >
                 <option value="todos">Todos</option>
                 <option value="despesa">Despesas</option>
@@ -371,13 +399,13 @@ export default function Home() {
               </select>
             </label>
 
-            <label className="grid gap-1 text-sm font-medium text-[#334155]">
+            <label className={filtroLabelClass}>
               Busca
               <input
                 value={busca}
                 onChange={(event) => setBusca(event.target.value)}
                 placeholder="Descricao, categoria ou conta"
-                className="h-10 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                className={filtroControlClass}
               />
             </label>
 
@@ -401,7 +429,7 @@ export default function Home() {
         </section>
 
         <section className="grid gap-5 xl:grid-cols-[1.45fr_0.55fr]">
-          <div className="overflow-hidden rounded-lg border border-[#d8dee8] bg-white">
+          <div className="overflow-hidden rounded-lg border border-[#d8dee8] bg-white text-slate-900">
             <div className="flex flex-col gap-3 border-b border-[#e2e8f0] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-base font-semibold">Lancamentos</h2>
@@ -501,7 +529,7 @@ export default function Home() {
                             onChange={(event) =>
                               atualizarLinha(lancamento.id, "data", event.target.value)
                             }
-                            className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white"
+                            className={tabelaControlClass}
                           />
                         </td>
                         <td className="px-3 py-2 align-top">
@@ -514,7 +542,7 @@ export default function Home() {
                                 event.target.value as TipoLancamento,
                               )
                             }
-                            className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white"
+                            className={tabelaControlClass}
                           >
                             <option value="despesa">Despesa</option>
                             <option value="receita">Receita</option>
@@ -527,7 +555,7 @@ export default function Home() {
                               atualizarLinha(lancamento.id, "descricao", event.target.value)
                             }
                             placeholder="Ex.: Mercado"
-                            className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white"
+                            className={tabelaControlClass}
                           />
                         </td>
                         <td className="px-3 py-2 align-top">
@@ -542,7 +570,7 @@ export default function Home() {
                               atualizarLinha(lancamento.id, "categoria", event.target.value)
                             }
                             placeholder="Categoria"
-                            className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white"
+                            className={tabelaControlClass}
                           />
                         </td>
                         <td className="px-3 py-2 align-top">
@@ -553,7 +581,7 @@ export default function Home() {
                               atualizarLinha(lancamento.id, "conta", event.target.value)
                             }
                             placeholder="Conta"
-                            className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white"
+                            className={tabelaControlClass}
                           />
                         </td>
                         <td className="px-3 py-2 align-top">
@@ -566,7 +594,7 @@ export default function Home() {
                                 event.target.value,
                               )
                             }
-                            className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white"
+                            className={tabelaControlClass}
                           >
                             <option value="">Selecione</option>
                             {formasPagamento.map((forma) => (
@@ -586,7 +614,7 @@ export default function Home() {
                               atualizarLinha(lancamento.id, "valor", event.target.value)
                             }
                             placeholder="0,00"
-                            className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 text-right outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white"
+                            className={tabelaControlDireitaClass}
                           />
                         </td>
                         <td className="px-3 py-2 align-top">
@@ -599,7 +627,7 @@ export default function Home() {
                                 event.target.value as StatusLancamento,
                               )
                             }
-                            className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white"
+                            className={tabelaControlClass}
                           >
                             <option value="pago">Pago</option>
                             <option value="pendente">Pendente</option>
@@ -612,7 +640,7 @@ export default function Home() {
                               atualizarLinha(lancamento.id, "observacao", event.target.value)
                             }
                             placeholder="Opcional"
-                            className="h-9 w-full rounded-md border border-transparent bg-transparent px-2 outline-none transition hover:border-[#cbd5e1] focus:border-[#2563eb] focus:bg-white"
+                            className={tabelaControlClass}
                           />
                         </td>
                         <td className="px-3 py-2 align-top">
@@ -661,7 +689,7 @@ export default function Home() {
           </div>
 
           <aside className="space-y-5">
-            <section className="rounded-lg border border-[#d8dee8] bg-white">
+            <section className="rounded-lg border border-[#d8dee8] bg-white text-slate-900">
               <div className="border-b border-[#e2e8f0] px-4 py-4">
                 <h2 className="text-base font-semibold">Resumo por categoria</h2>
                 <p className="mt-1 text-sm text-[#64748b]">
@@ -697,7 +725,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="rounded-lg border border-[#d8dee8] bg-white p-4">
+            <section className="rounded-lg border border-[#d8dee8] bg-white p-4 text-slate-900">
               <dl className="grid gap-3 text-sm">
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-[#64748b]">Linhas salvas</dt>
