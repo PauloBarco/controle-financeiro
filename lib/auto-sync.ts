@@ -1,10 +1,6 @@
 import { salvarDadosNaNuvem, obterUsuarioAtual } from "@/lib/cloud-sync";
-import { lerLancamentosSalvos } from "@/lib/storage-lancamentos";
-import {
-  lerFechamentosSalvos,
-  lerMetasSalvas,
-  lerRecorrenciasSalvas,
-} from "@/lib/planejamento";
+import { lerDadosFinanceirosLocais } from "@/lib/dados-financeiros";
+import { marcarDadosNuvemAtualizados } from "@/lib/sync-metadata";
 
 /**
  * Sistema de sincronização automática com a nuvem (Supabase)
@@ -60,17 +56,7 @@ function notifySyncStatus() {
 }
 
 async function calcularHashDados(storage: Storage) {
-  const lancamentos = lerLancamentosSalvos(storage);
-  const recorrencias = lerRecorrenciasSalvas(storage);
-  const metas = lerMetasSalvas(storage);
-  const fechamentos = lerFechamentosSalvos(storage);
-
-  const dados = JSON.stringify({
-    lancamentos,
-    recorrencias,
-    metas,
-    fechamentos,
-  });
+  const dados = JSON.stringify(lerDadosFinanceirosLocais(storage));
 
   // Simples hash para detectar mudanças
   let hash = 0;
@@ -134,20 +120,12 @@ export async function sincronizarAgora(storage: Storage) {
       console.log("[AutoSync] Iniciando sincronização...");
     }
 
-    const lancamentos = lerLancamentosSalvos(storage);
-    const recorrencias = lerRecorrenciasSalvas(storage);
-    const metas = lerMetasSalvas(storage);
-    const fechamentos = lerFechamentosSalvos(storage);
-
-    await salvarDadosNaNuvem({
-      lancamentos,
-      recorrencias,
-      metas,
-      fechamentos,
-    });
+    const dadosLocais = lerDadosFinanceirosLocais(storage);
+    const dadosSalvos = await salvarDadosNaNuvem(dadosLocais);
 
     lastSyncTime = Date.now();
     lastSyncHash = novoHash;
+    marcarDadosNuvemAtualizados(storage, dadosSalvos.atualizadoEm);
 
     if (config.debugMode) {
       console.log("[AutoSync] Sincronização concluída com sucesso!");
@@ -155,7 +133,7 @@ export async function sincronizarAgora(storage: Storage) {
 
     // Notificar usuário em background
     enviarNotificacao("Dados sincronizados na nuvem", {
-      body: `${lancamentos.length} lançamentos salvos com segurança.`,
+      body: `${dadosLocais.lancamentos.length} lançamentos salvos com segurança.`,
       tag: "auto-sync",
     });
   } catch (error) {

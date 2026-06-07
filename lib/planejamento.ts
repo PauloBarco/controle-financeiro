@@ -2,6 +2,7 @@ import {
   criarId,
   lerValor,
 } from "@/lib/lancamentos";
+import { marcarDadosLocaisAtualizados } from "@/lib/sync-metadata";
 import type {
   LancamentoPlanilha,
   StatusLancamento,
@@ -136,6 +137,7 @@ export function salvarRecorrencias(
   recorrencias: LancamentoRecorrente[],
 ) {
   storage.setItem(RECORRENCIAS_KEY, JSON.stringify(recorrencias));
+  marcarDadosLocaisAtualizados(storage);
 }
 
 export function lerMetasSalvas(storage: Storage) {
@@ -158,6 +160,7 @@ export function lerMetasSalvas(storage: Storage) {
 
 export function salvarMetas(storage: Storage, metas: MetaCategoria[]) {
   storage.setItem(METAS_CATEGORIA_KEY, JSON.stringify(metas));
+  marcarDadosLocaisAtualizados(storage);
 }
 
 export function lerFechamentosSalvos(storage: Storage) {
@@ -183,6 +186,7 @@ export function salvarFechamentos(
   fechamentos: Record<string, FechamentoMes>,
 ) {
   storage.setItem(FECHAMENTOS_MES_KEY, JSON.stringify(fechamentos));
+  marcarDadosLocaisAtualizados(storage);
 }
 
 export function criarLancamentoDeRecorrencia(

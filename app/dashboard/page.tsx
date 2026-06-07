@@ -9,7 +9,7 @@ import {
   GraficoDespesasPorCategoria,
 } from "@/components/GraficosDashboard";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { lerLancamentosSalvos } from "@/lib/storage-lancamentos";
+import { carregarDadosFinanceirosIniciais } from "@/lib/cloud-bootstrap";
 import {
   calcularStatsDashboard,
   agruparDespesasPorCategoria,
@@ -105,12 +105,22 @@ export default function DashboardPage() {
   const [carregado, setCarregado] = useState(false);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setLancamentos(lerLancamentosSalvos(window.localStorage));
-      setCarregado(true);
-    }, 0);
+    let ativo = true;
 
-    return () => window.clearTimeout(timeoutId);
+    async function carregarDados() {
+      const resultado = await carregarDadosFinanceirosIniciais(window.localStorage);
+
+      if (!ativo) return;
+
+      setLancamentos(resultado.dados.lancamentos);
+      setCarregado(true);
+    }
+
+    void carregarDados();
+
+    return () => {
+      ativo = false;
+    };
   }, []);
 
   const stats = useMemo(

@@ -3,6 +3,7 @@ import {
   normalizarLancamento,
 } from "@/lib/lancamentos";
 import type { LancamentoPlanilha } from "@/lib/lancamentos";
+import { marcarDadosLocaisAtualizados } from "@/lib/sync-metadata";
 
 type BackupLancamentos = {
   app: "controle-financeiro";
@@ -34,6 +35,7 @@ export function salvarLancamentos(
   lancamentos: LancamentoPlanilha[],
 ) {
   storage.setItem(STORAGE_KEY, JSON.stringify(lancamentos));
+  marcarDadosLocaisAtualizados(storage);
 }
 
 export function montarBackupLancamentos(lancamentos: LancamentoPlanilha[]) {

@@ -120,6 +120,8 @@ export async function salvarDadosNaNuvem(
   );
 
   if (error) throw error;
+
+  return payload;
 }
 
 export async function carregarDadosDaNuvem() {

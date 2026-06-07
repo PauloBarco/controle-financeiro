@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Download } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import BackupLancamentos from "@/components/BackupLancamentos";
@@ -19,11 +19,11 @@ import {
   lerValor,
 } from "@/lib/lancamentos";
 import {
-  lerLancamentosSalvos,
   salvarLancamentos,
 } from "@/lib/storage-lancamentos";
 import { agendarSincronizacao } from "@/lib/auto-sync";
 import { agendarBackupAutomatico } from "@/lib/automatic-backup";
+import { carregarDadosFinanceirosIniciais } from "@/lib/cloud-bootstrap";
 import type {
   CampoLancamento,
   LancamentoPlanilha,
@@ -156,18 +156,38 @@ export default function Home() {
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>("todos");
   const [busca, setBusca] = useState("");
   const [carregado, setCarregado] = useState(false);
+  const primeiraPersistenciaRef = useRef(true);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setLancamentos(lerLancamentosSalvos(window.localStorage));
-      setCarregado(true);
-    }, 0);
+    let ativo = true;
 
-    return () => window.clearTimeout(timeoutId);
+    async function carregarDados() {
+      const resultado = await carregarDadosFinanceirosIniciais(window.localStorage);
+
+      if (!ativo) return;
+
+      setLancamentos(resultado.dados.lancamentos);
+      setCarregado(true);
+
+      if (resultado.origem === "nuvem") {
+        notificar.sucesso("Dados carregados da nuvem");
+      }
+    }
+
+    void carregarDados();
+
+    return () => {
+      ativo = false;
+    };
   }, []);
 
   useEffect(() => {
     if (!carregado) return;
+
+    if (primeiraPersistenciaRef.current) {
+      primeiraPersistenciaRef.current = false;
+      return;
+    }
 
     salvarLancamentos(window.localStorage, lancamentos);
     // Sincronizar automaticamente após alterações

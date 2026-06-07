@@ -20,20 +20,17 @@ import {
   lerValor,
 } from "@/lib/lancamentos";
 import {
-  lerLancamentosSalvos,
   salvarLancamentos,
 } from "@/lib/storage-lancamentos";
 import {
   criarLancamentoDeRecorrencia,
-  lerFechamentosSalvos,
-  lerMetasSalvas,
-  lerRecorrenciasSalvas,
   obterChaveMes,
   salvarFechamentos,
   salvarMetas,
   salvarRecorrencias,
 } from "@/lib/planejamento";
 import { agendarSincronizacao } from "@/lib/auto-sync";
+import { carregarDadosFinanceirosIniciais } from "@/lib/cloud-bootstrap";
 import type {
   Comprovante,
   LancamentoPlanilha,
@@ -453,15 +450,25 @@ export default function ResumoMesPage() {
   const [carregado, setCarregado] = useState(false);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setLancamentos(lerLancamentosSalvos(window.localStorage));
-      setRecorrencias(lerRecorrenciasSalvas(window.localStorage));
-      setMetas(lerMetasSalvas(window.localStorage));
-      setFechamentos(lerFechamentosSalvos(window.localStorage));
-      setCarregado(true);
-    }, 0);
+    let ativo = true;
 
-    return () => window.clearTimeout(timeoutId);
+    async function carregarDados() {
+      const resultado = await carregarDadosFinanceirosIniciais(window.localStorage);
+
+      if (!ativo) return;
+
+      setLancamentos(resultado.dados.lancamentos);
+      setRecorrencias(resultado.dados.recorrencias);
+      setMetas(resultado.dados.metas);
+      setFechamentos(resultado.dados.fechamentos);
+      setCarregado(true);
+    }
+
+    void carregarDados();
+
+    return () => {
+      ativo = false;
+    };
   }, []);
 
   function persistir(next: LancamentoPlanilha[]) {

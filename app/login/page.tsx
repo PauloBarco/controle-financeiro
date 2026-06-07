@@ -11,17 +11,10 @@ import {
   salvarDadosNaNuvem,
 } from "@/lib/cloud-sync";
 import {
-  lerFechamentosSalvos,
-  lerMetasSalvas,
-  lerRecorrenciasSalvas,
-  salvarFechamentos,
-  salvarMetas,
-  salvarRecorrencias,
-} from "@/lib/planejamento";
-import {
-  lerLancamentosSalvos,
-  salvarLancamentos,
-} from "@/lib/storage-lancamentos";
+  lerDadosFinanceirosLocais,
+  salvarDadosFinanceirosLocais,
+} from "@/lib/dados-financeiros";
+import { marcarDadosNuvemAtualizados } from "@/lib/sync-metadata";
 
 type UsuarioNuvem = {
   id: string;
@@ -63,12 +56,7 @@ export default function LoginPage() {
   }
 
   function lerDadosLocais() {
-    return {
-      lancamentos: lerLancamentosSalvos(window.localStorage),
-      recorrencias: lerRecorrenciasSalvas(window.localStorage),
-      metas: lerMetasSalvas(window.localStorage),
-      fechamentos: lerFechamentosSalvos(window.localStorage),
-    };
+    return lerDadosFinanceirosLocais(window.localStorage);
   }
 
   async function entrar() {
@@ -84,7 +72,9 @@ export default function LoginPage() {
   }
 
   async function salvarNaNuvem() {
-    await salvarDadosNaNuvem(lerDadosLocais());
+    const dadosSalvos = await salvarDadosNaNuvem(lerDadosLocais());
+
+    marcarDadosNuvemAtualizados(window.localStorage, dadosSalvos.atualizadoEm);
     setMensagem("Dados locais salvos na nuvem.");
   }
 
@@ -100,10 +90,10 @@ export default function LoginPage() {
       return;
     }
 
-    salvarLancamentos(window.localStorage, dados.lancamentos);
-    salvarRecorrencias(window.localStorage, dados.recorrencias);
-    salvarMetas(window.localStorage, dados.metas);
-    salvarFechamentos(window.localStorage, dados.fechamentos);
+    salvarDadosFinanceirosLocais(window.localStorage, dados, {
+      atualizadoEmLocal: dados.atualizadoEm,
+      atualizadoEmNuvem: dados.atualizadoEm,
+    });
     setMensagem("Dados da nuvem carregados. Reabra a planilha para ver tudo atualizado.");
   }
 
