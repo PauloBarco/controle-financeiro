@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Download } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import BackupLancamentos from "@/components/BackupLancamentos";
@@ -24,6 +24,7 @@ import {
 import { agendarSincronizacao } from "@/lib/auto-sync";
 import { agendarBackupAutomatico } from "@/lib/automatic-backup";
 import { carregarDadosFinanceirosIniciais } from "@/lib/cloud-bootstrap";
+import { useCloudAutoRefresh } from "@/lib/use-cloud-auto-refresh";
 import type {
   CampoLancamento,
   LancamentoPlanilha,
@@ -158,6 +159,15 @@ export default function Home() {
   const [carregado, setCarregado] = useState(false);
   const primeiraPersistenciaRef = useRef(true);
 
+  const aplicarAtualizacaoDaNuvem = useCallback(
+    (dados: { lancamentos: LancamentoPlanilha[] }) => {
+      primeiraPersistenciaRef.current = true;
+      setLancamentos(dados.lancamentos);
+      notificar.sucesso("Dados atualizados da nuvem");
+    },
+    [],
+  );
+
   useEffect(() => {
     let ativo = true;
 
@@ -180,6 +190,11 @@ export default function Home() {
       ativo = false;
     };
   }, []);
+
+  useCloudAutoRefresh({
+    enabled: carregado,
+    onAtualizar: aplicarAtualizacaoDaNuvem,
+  });
 
   useEffect(() => {
     if (!carregado) return;

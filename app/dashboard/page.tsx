@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 import {
   GraficoReceitaVsDespesa,
@@ -10,6 +10,7 @@ import {
 } from "@/components/GraficosDashboard";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { carregarDadosFinanceirosIniciais } from "@/lib/cloud-bootstrap";
+import { useCloudAutoRefresh } from "@/lib/use-cloud-auto-refresh";
 import {
   calcularStatsDashboard,
   agruparDespesasPorCategoria,
@@ -104,6 +105,13 @@ export default function DashboardPage() {
   const [lancamentos, setLancamentos] = useState<LancamentoPlanilha[]>([]);
   const [carregado, setCarregado] = useState(false);
 
+  const aplicarAtualizacaoDaNuvem = useCallback(
+    (dados: { lancamentos: LancamentoPlanilha[] }) => {
+      setLancamentos(dados.lancamentos);
+    },
+    [],
+  );
+
   useEffect(() => {
     let ativo = true;
 
@@ -122,6 +130,11 @@ export default function DashboardPage() {
       ativo = false;
     };
   }, []);
+
+  useCloudAutoRefresh({
+    enabled: carregado,
+    onAtualizar: aplicarAtualizacaoDaNuvem,
+  });
 
   const stats = useMemo(
     () => calcularStatsDashboard(lancamentos),

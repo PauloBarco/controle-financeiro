@@ -14,6 +14,7 @@ import {
   lerDadosFinanceirosLocais,
   salvarDadosFinanceirosLocais,
 } from "@/lib/dados-financeiros";
+import { carregarDadosFinanceirosIniciais } from "@/lib/cloud-bootstrap";
 import { marcarDadosNuvemAtualizados } from "@/lib/sync-metadata";
 
 type UsuarioNuvem = {
@@ -62,7 +63,12 @@ export default function LoginPage() {
   async function entrar() {
     await entrarComEmail(email, senha);
     await atualizarUsuario();
-    setMensagem("Login realizado.");
+    const resultado = await carregarDadosFinanceirosIniciais(window.localStorage);
+    setMensagem(
+      resultado.origem === "nuvem"
+        ? "Login realizado. Dados da nuvem carregados."
+        : "Login realizado.",
+    );
   }
 
   async function cadastrar() {

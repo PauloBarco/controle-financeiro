@@ -20,9 +20,27 @@ export type ResultadoCargaFinanceira = {
   erro?: string;
 };
 
+const SNAPSHOT_LOCAL_SUBSTITUIDO_KEY =
+  "controle-financeiro-local-substituido-pela-nuvem-v1";
+
 function timestamp(valor: string) {
   const time = Date.parse(valor);
   return Number.isFinite(time) ? time : 0;
+}
+
+function salvarSnapshotLocalSubstituido(
+  storage: Storage,
+  dados: DadosFinanceirosLocais,
+) {
+  if (!dadosFinanceirosTemConteudo(dados)) return;
+
+  storage.setItem(
+    SNAPSHOT_LOCAL_SUBSTITUIDO_KEY,
+    JSON.stringify({
+      salvoEm: new Date().toISOString(),
+      dados,
+    }),
+  );
 }
 
 function protegerDadosLocaisExistentes(storage: Storage, dados: DadosFinanceirosLocais) {
@@ -39,10 +57,10 @@ export async function carregarDadosFinanceirosIniciais(
 ): Promise<ResultadoCargaFinanceira> {
   const dadosLocais = lerDadosFinanceirosLocais(storage);
   const localTemConteudo = dadosFinanceirosTemConteudo(dadosLocais);
-
-  protegerDadosLocaisExistentes(storage, dadosLocais);
+  const localAtualizadoEm = obterDadosLocaisAtualizadosEm(storage);
 
   if (typeof navigator !== "undefined" && !navigator.onLine) {
+    protegerDadosLocaisExistentes(storage, dadosLocais);
     return { dados: dadosLocais, origem: "local" };
   }
 
@@ -50,6 +68,7 @@ export async function carregarDadosFinanceirosIniciais(
     const dadosNuvem = await carregarDadosDaNuvem();
 
     if (!dadosNuvem) {
+      protegerDadosLocaisExistentes(storage, dadosLocais);
       return { dados: dadosLocais, origem: "local" };
     }
 
@@ -60,17 +79,28 @@ export async function carregarDadosFinanceirosIniciais(
     const ultimoSnapshotNuvemTime = timestamp(
       obterDadosNuvemAtualizadosEm(storage),
     );
-    const localTime = timestamp(obterDadosLocaisAtualizadosEm(storage));
+    const localTime = timestamp(localAtualizadoEm);
     const conheceSnapshotNuvem = ultimoSnapshotNuvemTime > 0;
     const nuvemMaisNova =
       conheceSnapshotNuvem && nuvemTime > ultimoSnapshotNuvemTime;
     const localFoiAlteradoDepoisDaNuvem =
       conheceSnapshotNuvem && localTime > ultimoSnapshotNuvemTime;
+    const localLegadoSemHistorico =
+      localTemConteudo && !conheceSnapshotNuvem && localTime === 0;
+    const nuvemMaisNovaQueLocalSemSnapshot =
+      localTemConteudo &&
+      !conheceSnapshotNuvem &&
+      localTime > 0 &&
+      nuvemTime > localTime;
 
     if (
       nuvemTemConteudo &&
-      (!localTemConteudo || (nuvemMaisNova && !localFoiAlteradoDepoisDaNuvem))
+      (!localTemConteudo ||
+        localLegadoSemHistorico ||
+        nuvemMaisNovaQueLocalSemSnapshot ||
+        (nuvemMaisNova && !localFoiAlteradoDepoisDaNuvem))
     ) {
+      salvarSnapshotLocalSubstituido(storage, dadosLocais);
       salvarDadosFinanceirosLocais(storage, dadosRemotos, {
         atualizadoEmLocal: nuvemAtualizadaEm,
         atualizadoEmNuvem: nuvemAtualizadaEm,
@@ -87,10 +117,14 @@ export async function carregarDadosFinanceirosIniciais(
       marcarDadosNuvemAtualizados(storage, nuvemAtualizadaEm);
     }
 
+    protegerDadosLocaisExistentes(storage, dadosLocais);
+
     return { dados: dadosLocais, origem: "local" };
   } catch (error) {
     const mensagem =
       error instanceof Error ? error.message : "Erro ao carregar dados da nuvem.";
+
+    protegerDadosLocaisExistentes(storage, dadosLocais);
 
     return {
       dados: dadosLocais,
@@ -99,4 +133,3 @@ export async function carregarDadosFinanceirosIniciais(
     };
   }
 }
-

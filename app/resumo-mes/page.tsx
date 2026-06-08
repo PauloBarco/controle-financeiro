@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import AppShell from "@/components/AppShell";
 import BackupLancamentos from "@/components/BackupLancamentos";
@@ -31,6 +31,8 @@ import {
 } from "@/lib/planejamento";
 import { agendarSincronizacao } from "@/lib/auto-sync";
 import { carregarDadosFinanceirosIniciais } from "@/lib/cloud-bootstrap";
+import { notificar } from "@/lib/notificacoes";
+import { useCloudAutoRefresh } from "@/lib/use-cloud-auto-refresh";
 import type {
   Comprovante,
   LancamentoPlanilha,
@@ -449,6 +451,22 @@ export default function ResumoMesPage() {
   const [fechamentos, setFechamentos] = useState<Record<string, FechamentoMes>>({});
   const [carregado, setCarregado] = useState(false);
 
+  const aplicarAtualizacaoDaNuvem = useCallback(
+    (dados: {
+      lancamentos: LancamentoPlanilha[];
+      recorrencias: LancamentoRecorrente[];
+      metas: MetaCategoria[];
+      fechamentos: Record<string, FechamentoMes>;
+    }) => {
+      setLancamentos(dados.lancamentos);
+      setRecorrencias(dados.recorrencias);
+      setMetas(dados.metas);
+      setFechamentos(dados.fechamentos);
+      notificar.sucesso("Dados atualizados da nuvem");
+    },
+    [],
+  );
+
   useEffect(() => {
     let ativo = true;
 
@@ -470,6 +488,11 @@ export default function ResumoMesPage() {
       ativo = false;
     };
   }, []);
+
+  useCloudAutoRefresh({
+    enabled: carregado,
+    onAtualizar: aplicarAtualizacaoDaNuvem,
+  });
 
   function persistir(next: LancamentoPlanilha[]) {
     setLancamentos(next);
