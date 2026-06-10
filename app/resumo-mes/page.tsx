@@ -24,6 +24,7 @@ import {
 } from "@/lib/storage-lancamentos";
 import {
   criarLancamentoDeRecorrencia,
+  montarDataNoMes,
   obterChaveMes,
   salvarFechamentos,
   salvarMetas,
@@ -150,6 +151,81 @@ function ResumoCard({ titulo, valor, tom }: ResumoCardProps) {
       </strong>
     </div>
   );
+}
+
+function normalizarChave(valor: string) {
+  return valor.trim().toLowerCase();
+}
+
+function criarChaveRecorrenciaNoMes(
+  recorrencia: LancamentoRecorrente,
+  mesInicio: string,
+) {
+  return [
+    obterChaveMes(mesInicio),
+    montarDataNoMes(mesInicio, recorrencia.dia),
+    recorrencia.tipo,
+    normalizarChave(recorrencia.descricao),
+    normalizarChave(recorrencia.categoria),
+    normalizarChave(recorrencia.conta),
+    normalizarChave(recorrencia.formaPagamento),
+    lerValor(recorrencia.valor).toFixed(2),
+  ].join("|");
+}
+
+function criarChaveLancamentoRecorrente(lancamento: LancamentoPlanilha) {
+  return [
+    lancamento.mesReferencia || obterChaveMes(lancamento.data),
+    lancamento.data,
+    lancamento.tipo,
+    normalizarChave(lancamento.descricao),
+    normalizarChave(lancamento.categoria),
+    normalizarChave(lancamento.conta),
+    normalizarChave(lancamento.formaPagamento),
+    lerValor(lancamento.valor).toFixed(2),
+  ].join("|");
+}
+
+function gerarLancamentosRecorrentesParaMes(
+  lancamentosAtuais: LancamentoPlanilha[],
+  recorrenciasAtuais: LancamentoRecorrente[],
+  mesInicio: string,
+) {
+  const mesReferencia = obterChaveMes(mesInicio);
+  const lancamentosDoMes = lancamentosAtuais.filter(
+    (lancamento) =>
+      (lancamento.mesReferencia || obterChaveMes(lancamento.data)) ===
+      mesReferencia,
+  );
+  const recorrenciasGeradas = new Set(
+    lancamentosDoMes
+      .map((lancamento) => lancamento.recorrenciaId)
+      .filter(Boolean),
+  );
+  const chavesExistentes = new Set(
+    lancamentosDoMes.map(criarChaveLancamentoRecorrente),
+  );
+  const novas: LancamentoPlanilha[] = [];
+
+  recorrenciasAtuais
+    .filter((recorrencia) => recorrencia.ativo)
+    .forEach((recorrencia) => {
+      const chave = criarChaveRecorrenciaNoMes(recorrencia, mesInicio);
+
+      if (recorrenciasGeradas.has(recorrencia.id) || chavesExistentes.has(chave)) {
+        return;
+      }
+
+      novas.push(criarLancamentoDeRecorrencia(recorrencia, mesInicio));
+      chavesExistentes.add(chave);
+      recorrenciasGeradas.add(recorrencia.id);
+    });
+
+  return {
+    novas,
+    lancamentos:
+      novas.length > 0 ? [...novas, ...lancamentosAtuais] : lancamentosAtuais,
+  };
 }
 
 type ContaMesItemProps = {
@@ -458,13 +534,25 @@ export default function ResumoMesPage() {
       metas: MetaCategoria[];
       fechamentos: Record<string, FechamentoMes>;
     }) => {
-      setLancamentos(dados.lancamentos);
+      const resultadoRecorrencias = gerarLancamentosRecorrentesParaMes(
+        dados.lancamentos,
+        dados.recorrencias,
+        rangeInicial.start,
+      );
+
+      setLancamentos(resultadoRecorrencias.lancamentos);
       setRecorrencias(dados.recorrencias);
       setMetas(dados.metas);
       setFechamentos(dados.fechamentos);
+
+      if (resultadoRecorrencias.novas.length > 0) {
+        salvarLancamentos(window.localStorage, resultadoRecorrencias.lancamentos);
+        agendarSincronizacao(window.localStorage);
+      }
+
       notificar.sucesso("Dados atualizados da nuvem");
     },
-    [],
+    [rangeInicial.start],
   );
 
   useEffect(() => {
@@ -475,11 +563,25 @@ export default function ResumoMesPage() {
 
       if (!ativo) return;
 
-      setLancamentos(resultado.dados.lancamentos);
+      const resultadoRecorrencias = gerarLancamentosRecorrentesParaMes(
+        resultado.dados.lancamentos,
+        resultado.dados.recorrencias,
+        rangeInicial.start,
+      );
+
+      setLancamentos(resultadoRecorrencias.lancamentos);
       setRecorrencias(resultado.dados.recorrencias);
       setMetas(resultado.dados.metas);
       setFechamentos(resultado.dados.fechamentos);
       setCarregado(true);
+
+      if (resultadoRecorrencias.novas.length > 0) {
+        salvarLancamentos(window.localStorage, resultadoRecorrencias.lancamentos);
+        agendarSincronizacao(window.localStorage);
+        notificar.info(
+          `${resultadoRecorrencias.novas.length} contas fixas geradas para este mes`,
+        );
+      }
     }
 
     void carregarDados();
@@ -684,6 +786,17 @@ export default function ResumoMesPage() {
     };
 
     persistirRecorrencias([novaRecorrencia, ...recorrencias]);
+
+    const resultadoRecorrencias = gerarLancamentosRecorrentesParaMes(
+      lancamentos,
+      [novaRecorrencia],
+      rangeInicial.start,
+    );
+
+    if (resultadoRecorrencias.novas.length > 0) {
+      persistir(resultadoRecorrencias.lancamentos);
+    }
+
     setRecorrenciaForm((atual) => ({
       ...criarRecorrenciaInicial(),
       tipo: atual.tipo,
@@ -702,33 +815,46 @@ export default function ResumoMesPage() {
   }
 
   function removerRecorrencia(id: string) {
-    if (!confirm("Remover esta recorrencia?")) return;
+    if (
+      !confirm(
+        "Remover esta recorrencia e os lancamentos gerados deste mes em diante?",
+      )
+    ) {
+      return;
+    }
 
     persistirRecorrencias(
       recorrencias.filter((recorrencia) => recorrencia.id !== id),
     );
+
+    const lancamentosSemRecorrencia = lancamentos.filter((lancamento) => {
+      if (lancamento.recorrenciaId !== id) return true;
+
+      const mesLancamento =
+        lancamento.mesReferencia || obterChaveMes(lancamento.data);
+
+      return mesLancamento < mesAtual;
+    });
+
+    if (lancamentosSemRecorrencia.length !== lancamentos.length) {
+      persistir(lancamentosSemRecorrencia);
+    }
   }
 
   function gerarRecorrenciasDoMes() {
-    const recorrenciasGeradas = new Set(
-      lancamentos
-        .filter((lancamento) => lancamento.mesReferencia === mesAtual)
-        .map((lancamento) => lancamento.recorrenciaId)
-        .filter(Boolean),
+    const resultadoRecorrencias = gerarLancamentosRecorrentesParaMes(
+      lancamentos,
+      recorrencias,
+      rangeInicial.start,
     );
-    const novas = recorrencias
-      .filter((recorrencia) => recorrencia.ativo)
-      .filter((recorrencia) => !recorrenciasGeradas.has(recorrencia.id))
-      .map((recorrencia) =>
-        criarLancamentoDeRecorrencia(recorrencia, rangeInicial.start),
-      );
+    const { novas } = resultadoRecorrencias;
 
     if (novas.length === 0) {
       alert("Nenhuma recorrencia nova para gerar neste mes.");
       return;
     }
 
-    persistir([...novas, ...lancamentos]);
+    persistir(resultadoRecorrencias.lancamentos);
     alert(`${novas.length} lancamentos recorrentes gerados.`);
   }
 

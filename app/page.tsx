@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import BackupLancamentos from "@/components/BackupLancamentos";
 import { PaginationControls } from "@/components/PaginationControls";
@@ -326,13 +326,6 @@ export default function Home() {
     notificar.sucesso("CSV exportado com sucesso");
   }
 
-  function limparPlanilha() {
-    if (!confirm("Apagar todos os lancamentos desta planilha?")) return;
-
-    setLancamentos([]);
-    notificar.sucesso("Planilha limpa");
-  }
-
   function importarBackup(lancamentosImportados: LancamentoPlanilha[]) {
     setLancamentos(lancamentosImportados);
     salvarLancamentos(window.localStorage, lancamentosImportados);
@@ -362,14 +355,6 @@ export default function Home() {
           >
             📅 Resumo
           </Link>
-          <button
-            type="button"
-            onClick={adicionarLinha}
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-linear-to-r from-green-600 to-green-700 px-4 text-sm font-semibold text-white transition hover:shadow-lg dark:from-green-700 dark:to-green-800"
-          >
-            <Plus className="w-4 h-4" />
-            Nova linha
-          </button>
         </div>
       }
     >
@@ -480,14 +465,6 @@ export default function Home() {
                   className="h-9 rounded-md bg-[#16a34a] px-3 text-sm font-semibold text-white transition hover:bg-[#15803d]"
                 >
                   Nova linha
-                </button>
-                <button
-                  type="button"
-                  onClick={limparPlanilha}
-                  disabled={lancamentos.length === 0}
-                  className="h-9 rounded-md border border-[#fecaca] px-3 text-sm font-semibold text-[#b91c1c] transition hover:border-[#ef4444] disabled:cursor-not-allowed disabled:border-[#e2e8f0] disabled:text-[#94a3b8]"
-                >
-                  Apagar tudo
                 </button>
               </div>
             </div>
