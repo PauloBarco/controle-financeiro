@@ -133,10 +133,22 @@ export async function limparDadosNaNuvem() {
 
   if (!user) return;
 
-  const { error } = await supabase
-    .from("controle_financeiro_dados")
-    .delete()
-    .eq("user_id", user.id);
+  const atualizadoEm = new Date().toISOString();
+  const { error } = await supabase.from("controle_financeiro_dados").upsert(
+    {
+      user_id: user.id,
+      dados: {
+        versao: 1,
+        atualizadoEm,
+        lancamentos: [],
+        recorrencias: [],
+        metas: [],
+        fechamentos: {},
+      } as unknown as Json,
+      updated_at: atualizadoEm,
+    },
+    { onConflict: "user_id" },
+  );
 
   if (error) throw error;
 }
