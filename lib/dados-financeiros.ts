@@ -64,6 +64,16 @@ export function salvarDadosFinanceirosLocais(
   }
 }
 
+export function limparDadosFinanceirosLocais(storage: Storage) {
+  storage.removeItem("controle-financeiro-domestico-v1");
+  storage.removeItem("controle-financeiro-recorrencias-v1");
+  storage.removeItem("controle-financeiro-metas-categorias-v1");
+  storage.removeItem("controle-financeiro-fechamentos-mes-v1");
+  storage.removeItem("controle-financeiro-local-atualizado-em-v1");
+  storage.removeItem("controle-financeiro-nuvem-atualizado-em-v1");
+  storage.removeItem("controle-financeiro-local-substituido-pela-nuvem-v1");
+}
+
 export function extrairDadosLocaisDaNuvem(
   dados: DadosFinanceirosNuvem,
 ): DadosFinanceirosLocais {

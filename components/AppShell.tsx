@@ -6,7 +6,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import type { ReactNode } from "react";
 
 const navigation = [
-  { href: "/", label: "Planilha", icon: "📊" },
+  { href: "/planilha", label: "Planilha", icon: "📊" },
   { href: "/dashboard", label: "Dashboard", icon: "📈" },
   { href: "/resumo-mes", label: "Resumo do mês", icon: "📅" },
   { href: "/login", label: "Nuvem", icon: "☁️" },
@@ -52,10 +52,7 @@ export default function AppShell({
           <nav className="flex gap-2 overflow-x-auto pb-1 -mb-2">
             {navigation.map((item) => {
               const active =
-                item.href === "/"
-                  ? pathname === item.href
-                  : pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`);
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
 
               return (
                 <Link

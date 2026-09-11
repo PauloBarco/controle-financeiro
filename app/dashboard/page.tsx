@@ -10,6 +10,8 @@ import {
 } from "@/components/GraficosDashboard";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { carregarDadosFinanceirosIniciais } from "@/lib/cloud-bootstrap";
+import { limparDadosFinanceirosLocais } from "@/lib/dados-financeiros";
+import { limparDadosNaNuvem } from "@/lib/cloud-sync";
 import { useCloudAutoRefresh } from "@/lib/use-cloud-auto-refresh";
 import {
   calcularStatsDashboard,
@@ -136,6 +138,28 @@ export default function DashboardPage() {
     onAtualizar: aplicarAtualizacaoDaNuvem,
   });
 
+  async function limparTodosOsDados() {
+    const confirmado = window.confirm(
+      "Tem certeza que deseja apagar todos os lançamentos, recorrências, metas e fechamentos? Essa ação não pode ser desfeita.",
+    );
+
+    if (!confirmado) return;
+
+    try {
+      await limparDadosNaNuvem();
+      limparDadosFinanceirosLocais(window.localStorage);
+      setLancamentos([]);
+      setCarregado(true);
+      window.alert("Todos os dados foram apagados.");
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? `Não foi possível apagar os dados: ${error.message}`
+          : "Não foi possível apagar os dados.",
+      );
+    }
+  }
+
   const stats = useMemo(
     () => calcularStatsDashboard(lancamentos),
     [lancamentos],
@@ -192,12 +216,21 @@ export default function DashboardPage() {
       title="Dashboard"
       subtitle="Visualização completa das suas finanças"
       action={
-        <Link
-          href="/"
-          className="inline-flex h-10 items-center rounded-md bg-[#2563eb] px-4 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]"
-        >
-          Voltar para planilha
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/planilha"
+            className="inline-flex h-10 items-center rounded-md bg-[#2563eb] px-4 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]"
+          >
+            Abrir planilha
+          </Link>
+          <button
+            type="button"
+            onClick={() => void limparTodosOsDados()}
+            className="inline-flex h-10 items-center rounded-md border border-[#fecaca] px-4 text-sm font-semibold text-[#b91c1c] transition hover:border-[#ef4444] hover:bg-[#fef2f2]"
+          >
+            Zerar dados
+          </button>
+        </div>
       }
     >
       {!carregado ? (

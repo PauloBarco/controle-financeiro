@@ -124,6 +124,23 @@ export async function salvarDadosNaNuvem(
   return payload;
 }
 
+export async function limparDadosNaNuvem() {
+  const supabase = getSupabaseClient();
+
+  if (!supabase) return;
+
+  const user = await obterUsuarioAtual();
+
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("controle_financeiro_dados")
+    .delete()
+    .eq("user_id", user.id);
+
+  if (error) throw error;
+}
+
 export async function carregarDadosDaNuvem() {
   const supabase = getClientOrThrow();
   const user = await obterUsuarioAtual();
