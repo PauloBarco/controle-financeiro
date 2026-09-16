@@ -12,12 +12,15 @@ import {
   getCurrentFullMonthRange,
 } from "@/lib/format";
 import {
+  FORMA_CARTAO_CREDITO,
+  adicionarMesesData,
   categoriasDespesa,
   categoriasReceita,
   contasSugeridas,
   criarId,
   formasPagamento,
   lerValor,
+  obterRotuloParcela,
 } from "@/lib/lancamentos";
 import {
   salvarLancamentos,
@@ -58,6 +61,8 @@ type NovoLancamentoForm = {
   titularConta: string;
   formaPagamento: string;
   valor: string;
+  parcelas: string;
+  valorParcela: string;
   status: StatusLancamento;
   observacao: string;
 };
@@ -98,6 +103,8 @@ function criarFormularioInicial(): NovoLancamentoForm {
     titularConta: "",
     formaPagamento: "",
     valor: "",
+    parcelas: "1",
+    valorParcela: "",
     status: "pendente",
     observacao: "",
   };
@@ -121,6 +128,27 @@ function criarMetaInicial(): MetaForm {
     categoria: "",
     limite: "",
   };
+}
+
+function ehCompraCartaoCredito(
+  form: Pick<NovoLancamentoForm, "tipo" | "formaPagamento">,
+) {
+  return (
+    form.tipo === "despesa" &&
+    form.formaPagamento === FORMA_CARTAO_CREDITO
+  );
+}
+
+function obterQuantidadeParcelas(valor: string) {
+  const numero = Number(valor);
+
+  if (!Number.isFinite(numero) || numero < 1) return 1;
+
+  return Math.min(Math.floor(numero), 120);
+}
+
+function normalizarValorFormulario(valor: string) {
+  return valor.replace(",", ".");
 }
 
 type ResumoCardProps = {
@@ -265,6 +293,7 @@ function ContaMesItem({
   }
 
   const pago = lancamento.status === "pago";
+  const rotuloParcela = obterRotuloParcela(lancamento);
 
   return (
     <div className="px-4 py-4">
@@ -283,6 +312,11 @@ function ContaMesItem({
             >
               {pago ? "Pago" : "Pendente"}
             </span>
+            {rotuloParcela ? (
+              <span className="rounded-md bg-[#e0f2fe] px-2 py-1 text-xs font-semibold text-[#075985]">
+                {rotuloParcela}
+              </span>
+            ) : null}
           </div>
 
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#64748b]">
@@ -589,7 +623,7 @@ export default function ResumoMesPage() {
     return () => {
       ativo = false;
     };
-  }, []);
+  }, [rangeInicial.start]);
 
   useCloudAutoRefresh({
     enabled: carregado,
@@ -732,8 +766,35 @@ export default function ResumoMesPage() {
         categoria: "",
         conta: tipo === "receita" ? atual.conta : "",
         titularConta: tipo === "receita" ? atual.titularConta : "",
+        formaPagamento:
+          tipo === "receita" && atual.formaPagamento === FORMA_CARTAO_CREDITO
+            ? ""
+            : atual.formaPagamento,
+        valor: tipo === "receita" ? atual.valor || atual.valorParcela : atual.valor,
+        parcelas: "1",
+        valorParcela: "",
         status: tipo === "receita" ? "pago" : "pendente",
       }));
+      return;
+    }
+
+    if (campo === "formaPagamento") {
+      setForm((atual) => {
+        const compraCartaoCredito =
+          atual.tipo === "despesa" && valor === FORMA_CARTAO_CREDITO;
+
+        return {
+          ...atual,
+          formaPagamento: valor,
+          valor: compraCartaoCredito
+            ? ""
+            : atual.valor || atual.valorParcela,
+          parcelas: compraCartaoCredito ? atual.parcelas || "1" : "1",
+          valorParcela: compraCartaoCredito
+            ? atual.valorParcela || atual.valor
+            : "",
+        };
+      });
       return;
     }
 
@@ -898,8 +959,16 @@ export default function ResumoMesPage() {
   function adicionarLancamento(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!form.descricao.trim() && !form.valor.trim()) {
+    const compraCartaoCredito = ehCompraCartaoCredito(form);
+    const valorInformado = compraCartaoCredito ? form.valorParcela : form.valor;
+
+    if (!form.descricao.trim() && !valorInformado.trim()) {
       alert("Informe pelo menos a descricao ou o valor do lancamento.");
+      return;
+    }
+
+    if (compraCartaoCredito && lerValor(valorInformado) <= 0) {
+      alert("Informe o valor de cada parcela.");
       return;
     }
 
@@ -911,22 +980,47 @@ export default function ResumoMesPage() {
       return;
     }
 
-    const novoLancamento: LancamentoPlanilha = {
-      id: criarId(),
-      data: form.data || formatDateInput(new Date()),
-      tipo: form.tipo,
-      descricao: form.descricao.trim(),
-      categoria: form.categoria.trim(),
-      conta: form.tipo === "receita" ? form.conta.trim() : "",
-      titularConta:
-        form.tipo === "receita" ? form.titularConta.trim() : "",
-      formaPagamento: form.formaPagamento,
-      valor: form.valor.replace(",", "."),
-      status: form.tipo === "receita" ? "pago" : form.status,
-      observacao: form.observacao.trim(),
-    };
+    const dataBase = form.data || formatDateInput(new Date());
+    const quantidadeParcelas = compraCartaoCredito
+      ? obterQuantidadeParcelas(form.parcelas)
+      : 1;
+    const parcelamentoId =
+      compraCartaoCredito && quantidadeParcelas > 1 ? criarId() : undefined;
+    const valorNormalizado = normalizarValorFormulario(valorInformado);
+    const novosLancamentos: LancamentoPlanilha[] = Array.from(
+      { length: quantidadeParcelas },
+      (_, indice) => ({
+        id: criarId(),
+        data: compraCartaoCredito
+          ? adicionarMesesData(dataBase, indice)
+          : dataBase,
+        tipo: form.tipo,
+        descricao: form.descricao.trim(),
+        categoria: form.categoria.trim(),
+        conta: form.tipo === "receita" ? form.conta.trim() : "",
+        titularConta:
+          form.tipo === "receita" ? form.titularConta.trim() : "",
+        formaPagamento: form.formaPagamento,
+        valor: valorNormalizado,
+        status: form.tipo === "receita" ? "pago" : form.status,
+        observacao: form.observacao.trim(),
+        parcelamentoId,
+        parcelaAtual:
+          compraCartaoCredito && quantidadeParcelas > 1
+            ? indice + 1
+            : undefined,
+        parcelasTotal:
+          compraCartaoCredito && quantidadeParcelas > 1
+            ? quantidadeParcelas
+            : undefined,
+        valorParcela:
+          compraCartaoCredito && quantidadeParcelas > 1
+            ? valorNormalizado
+            : undefined,
+      }),
+    );
 
-    persistir([novoLancamento, ...lancamentos]);
+    persistir([...novosLancamentos, ...lancamentos]);
     setForm((atual) => ({
       ...criarFormularioInicial(),
       data: atual.data,
@@ -967,6 +1061,7 @@ export default function ResumoMesPage() {
   const mostrarReceitas = filtroResumo === "todos" || filtroResumo === "receitas";
   const mostrarPendentes = filtroResumo === "todos" || filtroResumo === "pendentes";
   const mostrarPagas = filtroResumo === "todos" || filtroResumo === "pagas";
+  const formCompraCartaoCredito = ehCompraCartaoCredito(form);
 
   return (
     <AppShell
@@ -1138,14 +1233,36 @@ export default function ResumoMesPage() {
               </select>
             </label>
 
+            {formCompraCartaoCredito ? (
+              <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
+                Parcelas
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  step="1"
+                  value={form.parcelas}
+                  onChange={(event) => atualizarCampo("parcelas", event.target.value)}
+                  className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
+                />
+              </label>
+            ) : null}
+
             <label className="grid min-w-0 gap-1 text-sm font-medium text-[#334155]">
-              Valor
+              {formCompraCartaoCredito ? "Valor da parcela" : "Valor"}
               <input
                 type="number"
                 min="0"
                 step="0.01"
-                value={form.valor}
-                onChange={(event) => atualizarCampo("valor", event.target.value)}
+                value={
+                  formCompraCartaoCredito ? form.valorParcela : form.valor
+                }
+                onChange={(event) =>
+                  atualizarCampo(
+                    formCompraCartaoCredito ? "valorParcela" : "valor",
+                    event.target.value,
+                  )
+                }
                 placeholder="0,00"
                 className="h-10 w-full min-w-0 rounded-md border border-[#cbd5e1] bg-white px-3 text-sm outline-none transition focus:border-[#2563eb]"
               />

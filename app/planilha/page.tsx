@@ -17,6 +17,7 @@ import {
   criarId,
   formasPagamento,
   lerValor,
+  obterRotuloParcela,
 } from "@/lib/lancamentos";
 import {
   salvarLancamentos,
@@ -123,6 +124,9 @@ function montarCsv(lancamentos: LancamentoPlanilha[]) {
     "categoria",
     "conta",
     "forma_pagamento",
+    "parcela",
+    "parcelas_total",
+    "parcelamento_id",
     "valor",
     "status",
     "observacao",
@@ -137,6 +141,9 @@ function montarCsv(lancamentos: LancamentoPlanilha[]) {
       lancamento.categoria,
       lancamento.conta,
       lancamento.formaPagamento,
+      lancamento.parcelaAtual ? String(lancamento.parcelaAtual) : "",
+      lancamento.parcelasTotal ? String(lancamento.parcelasTotal) : "",
+      lancamento.parcelamentoId || "",
       lerValor(lancamento.valor).toFixed(2).replace(".", ","),
       lancamento.status,
       lancamento.observacao,
@@ -227,6 +234,7 @@ export default function Home() {
             lancamento.categoria,
             lancamento.conta,
             lancamento.formaPagamento,
+            obterRotuloParcela(lancamento),
             lancamento.observacao,
           ]
             .join(" ")
@@ -265,6 +273,10 @@ export default function Home() {
         ...lancamento,
         id: criarId(),
         descricao: lancamento.descricao ? `${lancamento.descricao} copia` : "",
+        parcelamentoId: undefined,
+        parcelaAtual: undefined,
+        parcelasTotal: undefined,
+        valorParcela: undefined,
       },
       ...atuais,
     ]);
@@ -510,6 +522,9 @@ export default function Home() {
                     <th className="w-40 border-b border-[#e2e8f0] px-3 py-3">
                       Pagamento
                     </th>
+                    <th className="w-28 border-b border-[#e2e8f0] px-3 py-3">
+                      Parcela
+                    </th>
                     <th className="w-32.5 border-b border-[#e2e8f0] px-3 py-3 text-right">
                       Valor
                     </th>
@@ -527,7 +542,7 @@ export default function Home() {
                 <tbody>
                   {lancamentosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-8 text-center text-sm text-[#64748b]">
+                      <td colSpan={11} className="px-4 py-8 text-center text-sm text-[#64748b]">
                         Nenhum lancamento encontrado.
                       </td>
                     </tr>
@@ -615,6 +630,11 @@ export default function Home() {
                               </option>
                             ))}
                           </select>
+                        </td>
+                        <td className="px-3 py-2 align-top">
+                          <span className="inline-flex h-9 w-full items-center rounded-md px-2 text-xs font-semibold text-[#475569]">
+                            {obterRotuloParcela(lancamento) || "-"}
+                          </span>
                         </td>
                         <td className="px-3 py-2 align-top">
                           <input

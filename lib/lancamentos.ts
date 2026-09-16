@@ -24,6 +24,10 @@ export type LancamentoPlanilha = {
   comprovante?: Comprovante;
   recorrenciaId?: string;
   mesReferencia?: string;
+  parcelamentoId?: string;
+  parcelaAtual?: number;
+  parcelasTotal?: number;
+  valorParcela?: string;
 };
 
 export type CampoLancamento = keyof LancamentoPlanilha;
@@ -69,6 +73,8 @@ export const formasPagamento = [
   "Transferencia",
 ];
 
+export const FORMA_CARTAO_CREDITO = "Cartao de credito";
+
 export function criarId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -86,6 +92,54 @@ export function inferirFormaPagamento(conta?: string) {
   if (texto.includes("dinheiro")) return "Dinheiro";
 
   return "";
+}
+
+function normalizarNumeroParcela(valor: unknown) {
+  const numero = Number(valor);
+
+  if (!Number.isFinite(numero) || numero < 1) return undefined;
+
+  return Math.floor(numero);
+}
+
+export function ehCartaoCredito(formaPagamento?: string) {
+  return formaPagamento === FORMA_CARTAO_CREDITO;
+}
+
+export function adicionarMesesData(data: string, meses: number) {
+  const [anoTexto, mesTexto, diaTexto] = data.split("-");
+  const ano = Number(anoTexto);
+  const mes = Number(mesTexto);
+  const dia = Number(diaTexto);
+
+  if (!ano || !mes || !dia) {
+    return data;
+  }
+
+  const dataAlvo = new Date(ano, mes - 1 + meses, 1);
+  const ultimoDia = new Date(
+    dataAlvo.getFullYear(),
+    dataAlvo.getMonth() + 1,
+    0,
+  ).getDate();
+
+  dataAlvo.setDate(Math.min(dia, ultimoDia));
+
+  return formatDateInput(dataAlvo);
+}
+
+export function obterRotuloParcela(
+  lancamento: Pick<LancamentoPlanilha, "parcelaAtual" | "parcelasTotal">,
+) {
+  if (
+    !lancamento.parcelaAtual ||
+    !lancamento.parcelasTotal ||
+    lancamento.parcelasTotal <= 1
+  ) {
+    return "";
+  }
+
+  return `Parcela ${lancamento.parcelaAtual}/${lancamento.parcelasTotal}`;
 }
 
 export function normalizarComprovante(
@@ -108,6 +162,16 @@ export function normalizarComprovante(
 export function normalizarLancamento(
   item: Partial<LancamentoPlanilha>,
 ): LancamentoPlanilha {
+  const parcelaAtual = normalizarNumeroParcela(item.parcelaAtual);
+  const parcelasTotal = normalizarNumeroParcela(item.parcelasTotal);
+  const temParcela =
+    parcelaAtual !== undefined &&
+    parcelasTotal !== undefined &&
+    parcelasTotal > 1;
+  const parcelaAtualNormalizada = temParcela
+    ? Math.min(parcelaAtual ?? 1, parcelasTotal ?? 1)
+    : undefined;
+
   return {
     id: item.id || criarId(),
     data: item.data || formatDateInput(new Date()),
@@ -126,6 +190,16 @@ export function normalizarLancamento(
     comprovante: normalizarComprovante(item.comprovante),
     recorrenciaId: item.recorrenciaId ? String(item.recorrenciaId) : undefined,
     mesReferencia: item.mesReferencia ? String(item.mesReferencia) : undefined,
+    parcelamentoId:
+      temParcela && item.parcelamentoId
+        ? String(item.parcelamentoId)
+        : undefined,
+    parcelaAtual: parcelaAtualNormalizada,
+    parcelasTotal: temParcela ? parcelasTotal : undefined,
+    valorParcela:
+      temParcela && item.valorParcela !== undefined && item.valorParcela !== null
+        ? String(item.valorParcela).replace(",", ".")
+        : undefined,
   };
 }
 
