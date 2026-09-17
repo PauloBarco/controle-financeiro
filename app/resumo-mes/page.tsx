@@ -262,6 +262,7 @@ type ContaMesItemProps = {
   onRemoverComprovante: () => void;
   onAlterarStatus: (status: StatusLancamento) => void;
   onEditarObservacao: () => void;
+  onEditarLancamento: () => void;
 };
 
 function ContaMesItem({
@@ -270,6 +271,7 @@ function ContaMesItem({
   onRemoverComprovante,
   onAlterarStatus,
   onEditarObservacao,
+  onEditarLancamento,
 }: ContaMesItemProps) {
   const [anexando, setAnexando] = useState(false);
 
@@ -300,7 +302,19 @@ function ContaMesItem({
   return (
     <div className="px-4 py-4">
       <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
-        <div className="min-w-0">
+        <div
+          className="min-w-0 cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb]"
+          onClick={onEditarLancamento}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onEditarLancamento();
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          title="Clique para editar este lancamento"
+        >
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold">
               {lancamento.descricao || "(sem descricao)"}
@@ -427,13 +441,30 @@ function ContaMesItem({
 type ReceitaMesItemProps = {
   lancamento: LancamentoPlanilha;
   onEditarObservacao: () => void;
+  onEditarLancamento: () => void;
 };
 
-function ReceitaMesItem({ lancamento, onEditarObservacao }: ReceitaMesItemProps) {
+function ReceitaMesItem({
+  lancamento,
+  onEditarObservacao,
+  onEditarLancamento,
+}: ReceitaMesItemProps) {
   return (
     <div className="px-4 py-4">
       <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
-        <div className="min-w-0">
+        <div
+          className="min-w-0 cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb]"
+          onClick={onEditarLancamento}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onEditarLancamento();
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          title="Clique para editar este lancamento"
+        >
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold">
               {lancamento.descricao || "(sem descricao)"}
@@ -477,9 +508,14 @@ function ReceitaMesItem({ lancamento, onEditarObservacao }: ReceitaMesItemProps)
 type ListaReceitasProps = {
   receitas: LancamentoPlanilha[];
   onEditarObservacao: (id: string) => void;
+  onEditarLancamento: (id: string) => void;
 };
 
-function ListaReceitas({ receitas, onEditarObservacao }: ListaReceitasProps) {
+function ListaReceitas({
+  receitas,
+  onEditarObservacao,
+  onEditarLancamento,
+}: ListaReceitasProps) {
   return (
     <section className="rounded-lg border border-[#d8dee8] bg-white">
       <div className="border-b border-[#e2e8f0] px-4 py-4">
@@ -507,6 +543,7 @@ function ListaReceitas({ receitas, onEditarObservacao }: ListaReceitasProps) {
               key={lancamento.id}
               lancamento={lancamento}
               onEditarObservacao={() => onEditarObservacao(lancamento.id)}
+              onEditarLancamento={() => onEditarLancamento(lancamento.id)}
             />
           ))
         )}
@@ -524,6 +561,7 @@ type ListaContasProps = {
   onRemoverComprovante: (id: string) => void;
   onAlterarStatus: (id: string, status: StatusLancamento) => void;
   onEditarObservacao: (id: string) => void;
+  onEditarLancamento: (id: string) => void;
 };
 
 function ListaContas({
@@ -535,6 +573,7 @@ function ListaContas({
   onRemoverComprovante,
   onAlterarStatus,
   onEditarObservacao,
+  onEditarLancamento,
 }: ListaContasProps) {
   return (
     <section className="rounded-lg border border-[#d8dee8] bg-white">
@@ -564,6 +603,7 @@ function ListaContas({
               onRemoverComprovante={() => onRemoverComprovante(lancamento.id)}
               onAlterarStatus={(status) => onAlterarStatus(lancamento.id, status)}
               onEditarObservacao={() => onEditarObservacao(lancamento.id)}
+              onEditarLancamento={() => onEditarLancamento(lancamento.id)}
             />
           ))
         )}
@@ -578,6 +618,9 @@ export default function ResumoMesPage() {
   const [filtroResumo, setFiltroResumo] = useState<FiltroResumo>("todos");
   const [form, setForm] = useState<NovoLancamentoForm>(() =>
     criarFormularioInicial(),
+  );
+  const [lancamentoEmEdicaoId, setLancamentoEmEdicaoId] = useState<string | null>(
+    null,
   );
   const [recorrencias, setRecorrencias] = useState<LancamentoRecorrente[]>([]);
   const [recorrenciaForm, setRecorrenciaForm] = useState<RecorrenciaForm>(() =>
@@ -1007,6 +1050,51 @@ export default function ResumoMesPage() {
       return;
     }
 
+    if (lancamentoEmEdicaoId) {
+      const lancamentoAtual = lancamentos.find(
+        (lancamento) => lancamento.id === lancamentoEmEdicaoId,
+      );
+
+      if (!lancamentoAtual) {
+        setLancamentoEmEdicaoId(null);
+        return;
+      }
+
+      const valorNormalizado = normalizarValorFormulario(valorInformado);
+      const lancamentoAtualizado: LancamentoPlanilha = {
+        ...lancamentoAtual,
+        data: form.data || lancamentoAtual.data,
+        tipo: form.tipo,
+        descricao: form.descricao.trim(),
+        categoria: form.categoria.trim(),
+        conta: form.tipo === "receita" ? form.conta.trim() : "",
+        titularConta: form.tipo === "receita" ? form.titularConta.trim() : "",
+        formaPagamento: form.formaPagamento,
+        valor: valorNormalizado,
+        status: form.tipo === "receita" ? "pago" : form.status,
+        observacao: form.observacao.trim(),
+        valorParcela: lancamentoAtual.parcelasTotal
+          ? valorNormalizado
+          : lancamentoAtual.valorParcela,
+      };
+
+      persistir(
+        lancamentos.map((lancamento) =>
+          lancamento.id === lancamentoEmEdicaoId
+            ? lancamentoAtualizado
+            : lancamento,
+        ),
+      );
+      setLancamentoEmEdicaoId(null);
+      setForm((atual) => ({
+        ...criarFormularioInicial(),
+        data: atual.data,
+        tipo: atual.tipo,
+        status: atual.tipo === "receita" ? "pago" : "pendente",
+      }));
+      return;
+    }
+
     const dataBase = form.data || formatDateInput(new Date());
     const quantidadeParcelas = compraCartaoCredito
       ? obterQuantidadeParcelas(form.parcelas)
@@ -1048,6 +1136,43 @@ export default function ResumoMesPage() {
     );
 
     persistir([...novosLancamentos, ...lancamentos]);
+    setForm((atual) => ({
+      ...criarFormularioInicial(),
+      data: atual.data,
+      tipo: atual.tipo,
+      status: atual.tipo === "receita" ? "pago" : "pendente",
+    }));
+  }
+
+  function editarLancamento(id: string) {
+    const lancamento = lancamentos.find((item) => item.id === id);
+
+    if (!lancamento) return;
+
+    const compraCartaoCredito = ehCompraCartaoCredito(lancamento);
+
+    setForm({
+      tipo: lancamento.tipo,
+      data: lancamento.data,
+      descricao: lancamento.descricao,
+      categoria: lancamento.categoria,
+      conta: lancamento.conta,
+      titularConta: lancamento.titularConta || "",
+      formaPagamento: lancamento.formaPagamento,
+      valor: compraCartaoCredito ? "" : lancamento.valor,
+      parcelas: String(lancamento.parcelasTotal || 1),
+      valorParcela: compraCartaoCredito
+        ? lancamento.valorParcela || lancamento.valor
+        : "",
+      status: lancamento.status,
+      observacao: lancamento.observacao,
+    });
+    setLancamentoEmEdicaoId(id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelarEdicaoLancamento() {
+    setLancamentoEmEdicaoId(null);
     setForm((atual) => ({
       ...criarFormularioInicial(),
       data: atual.data,
@@ -1175,9 +1300,15 @@ export default function ResumoMesPage() {
 
         <section className="rounded-lg border border-[#d8dee8] bg-white p-4">
           <div className="mb-4">
-            <h2 className="text-base font-semibold">Adicionar lancamento do mes</h2>
+            <h2 className="text-base font-semibold">
+              {lancamentoEmEdicaoId
+                ? "Editar lancamento do mes"
+                : "Adicionar lancamento do mes"}
+            </h2>
             <p className="mt-1 text-sm text-[#64748b]">
-              Cadastre entradas e saidas direto neste resumo.
+              {lancamentoEmEdicaoId
+                ? "Altere os dados e salve o lancamento selecionado."
+                : "Cadastre entradas e saidas direto neste resumo."}
             </p>
           </div>
 
@@ -1340,12 +1471,23 @@ export default function ResumoMesPage() {
               />
             </label>
 
-            <button
-              type="submit"
-              className="h-10 rounded-md bg-[#16a34a] px-4 text-sm font-semibold text-white transition hover:bg-[#15803d]"
-            >
-              Adicionar
-            </button>
+            <div className="flex gap-2 xl:col-span-1">
+              {lancamentoEmEdicaoId ? (
+                <button
+                  type="button"
+                  onClick={cancelarEdicaoLancamento}
+                  className="h-10 flex-1 rounded-md border border-[#cbd5e1] px-4 text-sm font-semibold text-[#334155] transition hover:border-[#64748b]"
+                >
+                  Cancelar
+                </button>
+              ) : null}
+              <button
+                type="submit"
+                className="h-10 flex-1 rounded-md bg-[#16a34a] px-4 text-sm font-semibold text-white transition hover:bg-[#15803d]"
+              >
+                {lancamentoEmEdicaoId ? "Salvar alteracoes" : "Adicionar"}
+              </button>
+            </div>
           </form>
         </section>
 
@@ -1565,6 +1707,7 @@ export default function ResumoMesPage() {
               <ListaReceitas
                 receitas={receitasMes}
                 onEditarObservacao={editarObservacao}
+                onEditarLancamento={editarLancamento}
               />
             ) : null}
 
@@ -1578,6 +1721,7 @@ export default function ResumoMesPage() {
                 onRemoverComprovante={removerComprovante}
                 onAlterarStatus={alterarStatus}
                 onEditarObservacao={editarObservacao}
+                onEditarLancamento={editarLancamento}
               />
             ) : null}
 
@@ -1591,6 +1735,7 @@ export default function ResumoMesPage() {
                 onRemoverComprovante={removerComprovante}
                 onAlterarStatus={alterarStatus}
                 onEditarObservacao={editarObservacao}
+                onEditarLancamento={editarLancamento}
               />
             ) : null}
           </div>
