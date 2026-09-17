@@ -261,6 +261,7 @@ type ContaMesItemProps = {
   onSalvarComprovante: (comprovante: Comprovante) => void;
   onRemoverComprovante: () => void;
   onAlterarStatus: (status: StatusLancamento) => void;
+  onEditarObservacao: () => void;
 };
 
 function ContaMesItem({
@@ -268,6 +269,7 @@ function ContaMesItem({
   onSalvarComprovante,
   onRemoverComprovante,
   onAlterarStatus,
+  onEditarObservacao,
 }: ContaMesItemProps) {
   const [anexando, setAnexando] = useState(false);
 
@@ -336,6 +338,14 @@ function ContaMesItem({
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onEditarObservacao}
+              className="h-9 rounded-md border border-[#cbd5e1] px-3 text-xs font-semibold text-[#334155] transition hover:border-[#64748b]"
+            >
+              Editar observacao
+            </button>
+
             <button
               type="button"
               onClick={() => onAlterarStatus(pago ? "pendente" : "pago")}
@@ -416,9 +426,10 @@ function ContaMesItem({
 
 type ReceitaMesItemProps = {
   lancamento: LancamentoPlanilha;
+  onEditarObservacao: () => void;
 };
 
-function ReceitaMesItem({ lancamento }: ReceitaMesItemProps) {
+function ReceitaMesItem({ lancamento, onEditarObservacao }: ReceitaMesItemProps) {
   return (
     <div className="px-4 py-4">
       <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
@@ -451,15 +462,24 @@ function ReceitaMesItem({ lancamento }: ReceitaMesItemProps) {
           {formatCurrency(lerValor(lancamento.valor))}
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={onEditarObservacao}
+        className="mt-3 h-9 rounded-md border border-[#cbd5e1] px-3 text-xs font-semibold text-[#334155] transition hover:border-[#64748b]"
+      >
+        Editar observacao
+      </button>
     </div>
   );
 }
 
 type ListaReceitasProps = {
   receitas: LancamentoPlanilha[];
+  onEditarObservacao: (id: string) => void;
 };
 
-function ListaReceitas({ receitas }: ListaReceitasProps) {
+function ListaReceitas({ receitas, onEditarObservacao }: ListaReceitasProps) {
   return (
     <section className="rounded-lg border border-[#d8dee8] bg-white">
       <div className="border-b border-[#e2e8f0] px-4 py-4">
@@ -483,7 +503,11 @@ function ListaReceitas({ receitas }: ListaReceitasProps) {
           </div>
         ) : (
           receitas.map((lancamento) => (
-            <ReceitaMesItem key={lancamento.id} lancamento={lancamento} />
+            <ReceitaMesItem
+              key={lancamento.id}
+              lancamento={lancamento}
+              onEditarObservacao={() => onEditarObservacao(lancamento.id)}
+            />
           ))
         )}
       </div>
@@ -499,6 +523,7 @@ type ListaContasProps = {
   onSalvarComprovante: (id: string, comprovante: Comprovante) => void;
   onRemoverComprovante: (id: string) => void;
   onAlterarStatus: (id: string, status: StatusLancamento) => void;
+  onEditarObservacao: (id: string) => void;
 };
 
 function ListaContas({
@@ -509,6 +534,7 @@ function ListaContas({
   onSalvarComprovante,
   onRemoverComprovante,
   onAlterarStatus,
+  onEditarObservacao,
 }: ListaContasProps) {
   return (
     <section className="rounded-lg border border-[#d8dee8] bg-white">
@@ -537,6 +563,7 @@ function ListaContas({
               }
               onRemoverComprovante={() => onRemoverComprovante(lancamento.id)}
               onAlterarStatus={(status) => onAlterarStatus(lancamento.id, status)}
+              onEditarObservacao={() => onEditarObservacao(lancamento.id)}
             />
           ))
         )}
@@ -1058,6 +1085,25 @@ export default function ResumoMesPage() {
     );
   }
 
+  function editarObservacao(id: string) {
+    const lancamento = lancamentos.find((item) => item.id === id);
+
+    if (!lancamento) return;
+
+    const observacao = window.prompt(
+      "Observacao do lancamento:",
+      lancamento.observacao,
+    );
+
+    if (observacao === null) return;
+
+    persistir(
+      lancamentos.map((item) =>
+        item.id === id ? { ...item, observacao: observacao.trim() } : item,
+      ),
+    );
+  }
+
   const mostrarReceitas = filtroResumo === "todos" || filtroResumo === "receitas";
   const mostrarPendentes = filtroResumo === "todos" || filtroResumo === "pendentes";
   const mostrarPagas = filtroResumo === "todos" || filtroResumo === "pagas";
@@ -1515,7 +1561,12 @@ export default function ResumoMesPage() {
 
         <section className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
           <div className="space-y-5">
-            {mostrarReceitas ? <ListaReceitas receitas={receitasMes} /> : null}
+            {mostrarReceitas ? (
+              <ListaReceitas
+                receitas={receitasMes}
+                onEditarObservacao={editarObservacao}
+              />
+            ) : null}
 
             {mostrarPendentes ? (
               <ListaContas
@@ -1526,6 +1577,7 @@ export default function ResumoMesPage() {
                 onSalvarComprovante={salvarComprovante}
                 onRemoverComprovante={removerComprovante}
                 onAlterarStatus={alterarStatus}
+                onEditarObservacao={editarObservacao}
               />
             ) : null}
 
@@ -1538,6 +1590,7 @@ export default function ResumoMesPage() {
                 onSalvarComprovante={salvarComprovante}
                 onRemoverComprovante={removerComprovante}
                 onAlterarStatus={alterarStatus}
+                onEditarObservacao={editarObservacao}
               />
             ) : null}
           </div>
