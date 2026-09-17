@@ -315,10 +315,11 @@ function ContaMesItem({
           tabIndex={0}
           title="Clique para editar este lancamento"
         >
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold">
-              {lancamento.descricao || "(sem descricao)"}
-            </h3>
+          <h3 className="truncate text-sm font-semibold">
+            {lancamento.descricao || "(sem descricao)"}
+          </h3>
+
+          <div className="mt-2 flex min-h-7 items-center gap-2 whitespace-nowrap">
             <span
               className={`rounded-md px-2 py-1 text-xs font-semibold ${
                 pago
