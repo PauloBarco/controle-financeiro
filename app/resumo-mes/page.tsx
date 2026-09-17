@@ -319,9 +319,9 @@ function ContaMesItem({
             {lancamento.descricao || "(sem descricao)"}
           </h3>
 
-          <div className="mt-2 flex min-h-7 items-center gap-2 whitespace-nowrap">
+          <div className="mt-2 grid min-h-7 grid-cols-[5.5rem_6.5rem_minmax(0,1fr)] items-center gap-2">
             <span
-              className={`rounded-md px-2 py-1 text-xs font-semibold ${
+              className={`inline-flex h-7 w-fit items-center rounded-md px-2 py-1 text-xs font-semibold whitespace-nowrap ${
                 pago
                   ? "bg-[#dcfce7] text-[#166534]"
                   : "bg-[#fee2e2] text-[#991b1b]"
@@ -329,11 +329,13 @@ function ContaMesItem({
             >
               {pago ? "Pago" : "Pendente"}
             </span>
-            {rotuloParcela ? (
-              <span className="rounded-md bg-[#e0f2fe] px-2 py-1 text-xs font-semibold text-[#075985]">
-                {rotuloParcela}
-              </span>
-            ) : null}
+            <span className="inline-flex h-7 w-fit items-center">
+              {rotuloParcela ? (
+                <span className="rounded-md bg-[#e0f2fe] px-2 py-1 text-xs font-semibold whitespace-nowrap text-[#075985]">
+                  {rotuloParcela}
+                </span>
+              ) : null}
+            </span>
           </div>
 
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#64748b]">
